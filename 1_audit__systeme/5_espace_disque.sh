@@ -15,7 +15,7 @@ echo "=== Espace disque par systèmes de fichiers montés==="
 df -h
 
 echo ""
-echo "=== Partitions physiques/virtuelles uniquement ==="
+echo "=== Partitions physiques/virtuelles ==="
 # Pour afficher uniquement les partitions physiques ou virtuelles,
 # on filtre les résultats avec `grep`.
 # - L’option `-E` permet d’utiliser des expressions régulières étendues.
