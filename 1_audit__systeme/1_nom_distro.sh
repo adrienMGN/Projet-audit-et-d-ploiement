@@ -2,6 +2,7 @@
 
 echo -e '\nNom de la machine:'
 uname --nodename
+# '-e' permet à echo d'intepreter les caracteres comme '\n'
 
 echo -e '\nDistribution:'
 lsb_release -a | grep Description | cut -f2
@@ -11,11 +12,3 @@ lsb_release -a | grep Description | cut -f2
 echo -e '\nVersion du kernel:'
 uname -r
 # donne la version et l'architecture (amd par exemple) du kernel
-
-
-# Usage type :
-# ./1_nom_distro.sh
-# iutnc-503-05
-# Debian GNU/Linux 12 (bookworm)
-# 6.1.0-40-amd64
-#
