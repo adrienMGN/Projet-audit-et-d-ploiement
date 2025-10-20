@@ -21,14 +21,15 @@ checkProc() {
     ps -eo pid,comm,%cpu,%mem --no-headers | while read -r pid comm cpu mem; do
         # comparaison des valeurs actuelles avec les seuils donnés en paramètre
         # Convertir en entiers en multipliant par 10 pour gérer les décimales
-        # bc pour les calculs flottants
-        cpu_int=$(echo "$cpu * 10" | bc | cut -d. -f1)
-        mem_int=$(echo "$mem * 10" | bc | cut -d. -f1)
-        cpu_threshold_int=$(echo "$CPU_THRESHOLD * 10" | bc | cut -d. -f1)
-        mem_threshold_int=$(echo "$RAM_THRESHOLD * 10" | bc | cut -d. -f1)
+        # bc pour les calculs flottants, printf pour supprimer les décimales
+        cpu_int=$(printf "%.0f" $(echo "$cpu * 10" | bc))
+        mem_int=$(printf "%.0f" $(echo "$mem * 10" | bc))
+        # printf "%.0f" $(echo "$value * 10" | bc) pour convertir en entier en multipliant par 10
+        cpu_threshold_int=$(printf "%.0f" $(echo "$CPU_THRESHOLD * 10" | bc))
+        mem_threshold_int=$(printf "%.0f" $(echo "$RAM_THRESHOLD * 10" | bc))
 
         # compare et affiche si dépassement
-        if [ "$cpu_int" -ge "$cpu_threshold_int" ] || [ "$mem_int" -ge "$mem_threshold_int" ]; then
+        if [ "$cpu_int" -ge "$cpu_threshold_int" ] && [ "$mem_int" -ge "$mem_threshold_int" ]; then
             echo "PID: $pid, Commande: $comm, CPU: $cpu%, RAM: $mem%"
         fi
     done
