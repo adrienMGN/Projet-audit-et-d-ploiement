@@ -32,10 +32,12 @@ checkProc() {
     echo "Processus dépassant le seuil CPU de $CPU_THRESHOLD% ET RAM de $RAM_THRESHOLD% :"
     echo "------------------------------------------------------------"
     
-    # Convertir les seuils une seule fois
+    # Convertir les seuils en entiers
     cpu_threshold_int=$(to_int "$CPU_THRESHOLD")
     mem_threshold_int=$(to_int "$RAM_THRESHOLD")
     
+    # -e pour sélectionner les colonnes, --no-headers pour ne pas afficher l'en-tête
+    # -o pour format customisé 
     ps -eo pid,comm,%cpu,%mem --no-headers | while read -r pid comm cpu mem; do
         # Convertir les valeurs actuelles
         cpu_int=$(to_int "$cpu")
@@ -43,6 +45,7 @@ checkProc() {
 
         # compare et affiche si dépassement des DEUX seuils
         if [ "$cpu_int" -ge "$cpu_threshold_int" ] && [ "$mem_int" -ge "$mem_threshold_int" ]; then
+            # affichage des infos du processus avec les variables lues
             echo "PID: $pid, Commande: $comm, CPU: $cpu%, RAM: $mem%"
         fi
     done
@@ -52,14 +55,8 @@ checkProc() {
 checkProc
 
 # utilisation de deux fonctions pour le traitement de la charge système car plus facile à lire et à maintenir
+# fonction de conversion pour comparaison essentielle
 # permet aussi de réutiliser le code si besoin
 # comparaison des valeurs actuelles avec les seuils donnés en paramètre
 # affiche les processus dépassant les seuils
-# https://unix.stackexchange.com/questions/153157/format-ps-command-output-without-whitespace
-
-# utilisation d'une fonction pour le traitement de la charge système car plus facile à lire et à maintenir
-# permet aussi de réutiliser le code si besoin
-# comparaison des valeurs actuelles avec les seuils donnés en paramètre
-# affiche les processus dépassant les seuils
-# utilise bc pour les calculs flottants 
 # https://unix.stackexchange.com/questions/153157/format-ps-command-output-without-whitespace
