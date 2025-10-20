@@ -42,21 +42,26 @@ checkProc() {
     cpu_threshold_int=$(to_int "$CPU_THRESHOLD")
     mem_threshold_int=$(to_int "$RAM_THRESHOLD")
     
-    # -e pour sélectionner les colonnes, --no-headers pour ne pas afficher l'en-tête
-    # -o pour format customisé avec largeurs fixes pour éviter les problèmes d'espaces
-    ps -eo pid:8,comm:20,%cpu:8,%mem:8 --no-headers | while read -r pid comm cpu mem; do
-        # Convertir les valeurs actuelles
-        cpu_int=$(to_int "$cpu")
-        mem_int=$(to_int "$mem")
+    # Utiliser ps sans format fixe et parser avec regex
+    ps -eo pid,%cpu,%mem,comm --no-headers | while IFS= read -r line; do
+        # Regex pour extraire: PID (digits), CPU (float), RAM (float), et le reste pour COMM
+        if echo "$line" | grep -E '^\s*([0-9]+)\s+([0-9]+\.?[0-9]*)\s+([0-9]+\.?[0-9]*)\s+(.+)$' > /dev/null; then
+            pid=$(echo "$line" | sed -E 's/^\s*([0-9]+)\s+([0-9]+\.?[0-9]*)\s+([0-9]+\.?[0-9]*)\s+(.+)$/\1/')
+            cpu=$(echo "$line" | sed -E 's/^\s*([0-9]+)\s+([0-9]+\.?[0-9]*)\s+([0-9]+\.?[0-9]*)\s+(.+)$/\2/')
+            mem=$(echo "$line" | sed -E 's/^\s*([0-9]+)\s+([0-9]+\.?[0-9]*)\s+([0-9]+\.?[0-9]*)\s+(.+)$/\3/')
+            comm=$(echo "$line" | sed -E 's/^\s*([0-9]+)\s+([0-9]+\.?[0-9]*)\s+([0-9]+\.?[0-9]*)\s+(.+)$/\4/')
+            
+            # Convertir les valeurs actuelles
+            cpu_int=$(to_int "$cpu")
+            mem_int=$(to_int "$mem")
 
-        # compare et affiche si dépassement des DEUX seuils
-        if [ "$cpu_int" -ge "$cpu_threshold_int" ] && [ "$mem_int" -ge "$mem_threshold_int" ]; then
-            # affichage des infos du processus avec les variables lues
-            echo "PID: $pid, Commande: $comm, CPU: $cpu%, RAM: $mem%"
+            # compare et affiche si dépassement des DEUX seuils
+            if [ "$cpu_int" -ge "$cpu_threshold_int" ] && [ "$mem_int" -ge "$mem_threshold_int" ]; then
+                echo "PID: $pid, Commande: $comm, CPU: $cpu%, RAM: $mem%"
+            fi
         fi
     done
 }
-
 # appel de la fonction pour vérifier les processus
 checkProc
 
