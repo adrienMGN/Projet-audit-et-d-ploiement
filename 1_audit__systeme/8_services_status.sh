@@ -3,6 +3,8 @@
 # Vérifier si les services sont actifs et activés au démarrage
 # Vérification de la présence et du statut des services clés
 
+# utilisation de systemctl pour gérer les services sous systemd (la plupart des distributions Linux modernes)
+
 # SSHD
 
 # vérifier d'abord si le service existe pour éviter les erreurs

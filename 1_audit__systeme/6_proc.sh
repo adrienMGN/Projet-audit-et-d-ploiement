@@ -4,6 +4,8 @@
 CPU_TH=${1:-5}   # défaut 5%
 MEM_TH=${2:-5}   # défaut 5%
 
+# utilisation de ps car systemctl n'est pas adapté pour les processus
+
 # Processus au-dessus du seuil CPU
 echo "Processes with CPU > $CPU_TH%:"
 ps -eo pid,user,comm,pcpu,pmem --sort=-pcpu | awk -v th="$CPU_TH" 'NR==1{print;next} $4+0>th{printf "%s\t%s\t%s\t%s%%\t%s%%\n",$1,$2,$3,$4,$5}'
