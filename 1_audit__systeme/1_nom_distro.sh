@@ -12,3 +12,18 @@ lsb_release -a | grep Description | cut -f2
 echo -e '\nVersion du kernel:'
 uname -r
 # donne la version et l'architecture (amd par exemple) du kernel
+
+
+
+#Usage type :
+#$ ./1_nom_distro.sh 
+#
+#Nom de la machine:
+#iutnc-503-05
+#
+#Distribution:
+#Debian GNU/Linux 12 (bookworm)
+#
+#Version du kernel:
+#6.1.0-40-amd64
+
