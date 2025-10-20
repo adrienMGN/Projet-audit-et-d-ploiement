@@ -4,11 +4,12 @@ echo -e '\nUptime:'
 uptime -p
 
 echo -e '\nCharge moyenne en coeurs:'
-uptime | cut -d':' -f4
+LANG=C uptime | grep -o 'load average:.*' | cut -d':' -f2
 # les valeurs qu'on trouve dans uptime sont les 3 charges moyennes aux cours des 1, 5 et 15 dernières minutes.
 # on l'interprete en fonction du nombre de coeur CPU
 # Si il y a 4 coeurs, alors la charge peut aller de 0.00 à 4.00
 # -d':' permet d'utiliser le caractère ':' comme séparateur au lieu des tabulations
+# LANG=C permet d'avoir le resultat en anglais, afin que le grep 'load average' fonctionne sur toutes les machines
 
 echo -e '\nMémoire utilisée | disponible:'
 LANG=C free -h | grep Mem: | tr -s ' ' | cut -d' ' -f3,4
