@@ -12,23 +12,36 @@ fi
 CPU_THRESHOLD=$1
 RAM_THRESHOLD=$2
 
+# fonction pour convertir un nombre décimal en entier pour comparaison
+# exemples: 1.5 -> 15, 1 -> 10, 0.3 -> 3
+to_int() {
+    number=$1
+    
+    # si le nombre contient un point (nombre décimal)
+    if echo "$number" | grep -q '\.'; then
+        # supprimer le point: 1.5 devient 15
+        echo "$number" | sed 's/\.//'
+    else
+        # si c'est un entier, ajouter un 0: 1 devient 10
+        echo "${number}0"
+    fi
+}
+
 # fonction checkProc Vérifie la charge CPU et RAM pour chaque processus
 checkProc() {
-    echo "Processus dépassant le seuil CPU de $CPU_THRESHOLD% ou RAM de $RAM_THRESHOLD% :"
+    echo "Processus dépassant le seuil CPU de $CPU_THRESHOLD% ET RAM de $RAM_THRESHOLD% :"
     echo "------------------------------------------------------------"
-    # ps pour obtenir la liste des processus avec leur utilisation CPU et RAM
-    # --no-headers pour ne pas afficher l'en-tête -e pour tous les processus -o pour format personnalisé
+    
+    # Convertir les seuils une seule fois
+    cpu_threshold_int=$(to_int "$CPU_THRESHOLD")
+    mem_threshold_int=$(to_int "$RAM_THRESHOLD")
+    
     ps -eo pid,comm,%cpu,%mem --no-headers | while read -r pid comm cpu mem; do
-        # comparaison des valeurs actuelles avec les seuils donnés en paramètre
-        # Convertir en entiers en multipliant par 10 pour gérer les décimales
-        # bc pour les calculs flottants, printf pour supprimer les décimales
-        cpu_int=$(printf "%.0f" $(echo "$cpu * 10" | bc))
-        mem_int=$(printf "%.0f" $(echo "$mem * 10" | bc))
-        # printf "%.0f" $(echo "$value * 10" | bc) pour convertir en entier en multipliant par 10
-        cpu_threshold_int=$(printf "%.0f" $(echo "$CPU_THRESHOLD * 10" | bc))
-        mem_threshold_int=$(printf "%.0f" $(echo "$RAM_THRESHOLD * 10" | bc))
+        # Convertir les valeurs actuelles
+        cpu_int=$(to_int "$cpu")
+        mem_int=$(to_int "$mem")
 
-        # compare et affiche si dépassement
+        # compare et affiche si dépassement des DEUX seuils
         if [ "$cpu_int" -ge "$cpu_threshold_int" ] && [ "$mem_int" -ge "$mem_threshold_int" ]; then
             echo "PID: $pid, Commande: $comm, CPU: $cpu%, RAM: $mem%"
         fi
@@ -37,6 +50,12 @@ checkProc() {
 
 # appel de la fonction pour vérifier les processus
 checkProc
+
+# utilisation de deux fonctions pour le traitement de la charge système car plus facile à lire et à maintenir
+# permet aussi de réutiliser le code si besoin
+# comparaison des valeurs actuelles avec les seuils donnés en paramètre
+# affiche les processus dépassant les seuils
+# https://unix.stackexchange.com/questions/153157/format-ps-command-output-without-whitespace
 
 # utilisation d'une fonction pour le traitement de la charge système car plus facile à lire et à maintenir
 # permet aussi de réutiliser le code si besoin
