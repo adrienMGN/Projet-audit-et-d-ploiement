@@ -13,14 +13,20 @@ CPU_THRESHOLD=$1
 RAM_THRESHOLD=$2
 
 # fonction pour convertir un nombre décimal en entier pour comparaison
-# exemples: 1.5 -> 15, 1 -> 10, 0.3 -> 3
+# exemples: 1.5 -> 15, 1 -> 10, 0.3 -> 3, 0.0 -> 0
 to_int() {
     number=$1
     
     # si le nombre contient un point (nombre décimal)
     if echo "$number" | grep -q '\.'; then
-        # supprimer le point: 1.5 devient 15
-        echo "$number" | sed 's/\.//'
+        # supprimer le point: 1.5 devient 15, 0.0 devient 00
+        result=$(echo "$number" | sed 's/\.//')
+        # si le résultat est 00, le convertir en 0
+        if [ "$result" = "00" ]; then
+            echo "0"
+        else
+            echo "$result"
+        fi
     else
         # si c'est un entier, ajouter un 0: 1 devient 10
         echo "${number}0"
@@ -37,8 +43,8 @@ checkProc() {
     mem_threshold_int=$(to_int "$RAM_THRESHOLD")
     
     # -e pour sélectionner les colonnes, --no-headers pour ne pas afficher l'en-tête
-    # -o pour format customisé 
-    ps -eo pid,comm,%cpu,%mem --no-headers | while read -r pid comm cpu mem; do
+    # -o pour format customisé avec largeurs fixes pour éviter les problèmes d'espaces
+    ps -eo pid:8,comm:20,%cpu:8,%mem:8 --no-headers | while read -r pid comm cpu mem; do
         # Convertir les valeurs actuelles
         cpu_int=$(to_int "$cpu")
         mem_int=$(to_int "$mem")
