@@ -22,7 +22,7 @@ echo "=== Partitions physiques/virtuelles ==="
 # - On sélectionne :
 #     - la ligne d’en-tête (commençant par “Filesystem”)
 #     - les lignes commençant par “/dev/” (qui correspondent aux partitions)
-df -h | grep -E "^Filesystem|^/dev/" --color=never
+df -h | grep -E "^/dev/" --color=never
 
 
 ##############################################
