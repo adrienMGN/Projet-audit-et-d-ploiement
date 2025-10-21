@@ -41,7 +41,7 @@ def export_json_to_file(data, file_path)
 end
 
 # 1
-def nom_distro(format = "text")
+def nom_distro(format)
   nodename = `uname --nodename`.strip
   distrib = `lsb_release -a 2>/dev/null | grep Description | cut -f2`.strip
   kernel_ver = `uname -r`.strip
