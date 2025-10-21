@@ -15,6 +15,8 @@ OptionParser.new do |opt|
   opt.on('-f', '--flux_min MIN') { |o| options[:flux_min] = o }
   # gestion des services 
   opt.on('-e', '--services "service1 service 2 ..." ') { |o| options[:services] = o }
+  # fichier de sortie pour JSON
+  opt.on('--file PATH') { |o| options[:file] = o }
 end.parse!
 
 ############ VARIABLES OPTIONS ############
@@ -24,8 +26,22 @@ cpu_th = options[:cpu] || 5   # défaut 5%
 mem_th = options[:memory] || 5   # défaut 5%
 flux_min = options[:flux_min] || 2 # défaut 2KB
 services_list = options[:services] ? options[:services].split(' ') : []
+output_file = options[:file] 
 
 ############ FONCTIONS ############
+
+# fonction export json avec header correspondant 
+def export_json_to_file(data, file_path)
+  begin
+    File.open(file_path, 'w') do |file|
+      file.write(JSON.pretty_generate(data))
+    end
+    puts "Données JSON exportées vers: #{file_path}"
+  rescue => e
+    puts "Erreur lors de l'écriture du fichier: #{e.message}"
+  end
+end
+
 # 1
 def nom_distro(format = "text")
   nodename = `uname --nodename`.strip
@@ -38,13 +54,15 @@ def nom_distro(format = "text")
     "Version du kernel" => kernel_ver
   }
 
-  if format.downcase == "json"
+  if format.downcase == "json" && format != "json_silent"
     puts infos.to_json
-  else
+  elsif format != "json_silent"
     puts "\nNom de la machine: #{nodename}"
     puts "Distribution: #{distrib}"
     puts "Version du kernel: #{kernel_ver}"
   end
+  
+  return infos
 end
 
 # 2
@@ -66,14 +84,16 @@ def uptime_avgload_memory_swapavailable(format)
     "Swap disponible" => swap_dispo
   }
 
-  if format.downcase == "json"
+  if format.downcase == "json" && format != "json_silent"
     puts info.to_json
-  else
+  elsif format != "json_silent"
     puts "\nUptime: #{uptime}"
     puts "Charge moyenne (1, 5, 15 min): #{load_avg}"
     puts "Mémoire utilisée | disponible: #{mem_used} | #{mem_dispo}"
     puts "Swap utilisé | disponible: #{swap_used} | #{swap_dispo}"
   end
+  
+  return info
 end
 
 # 3 
@@ -147,9 +167,9 @@ def network_interfaces(format)
   # Convertir en array pour la sortie
   result = interfaces_data.values
   
-  if format.downcase == "json"
+  if format.downcase == "json" && format != "json_silent"
     puts result.to_json
-  else
+  elsif format != "json_silent"
     puts "\nInformations Réseau:"
     result.each do |data|
       puts "Interface: #{data["Interface"]}"
@@ -181,6 +201,8 @@ def network_interfaces(format)
       puts
     end
   end
+  
+  return result
 end
 
 # 4
@@ -192,16 +214,17 @@ def users_humains(format)
     "Humains connectés" => humains_up
   }
 
-  if format.downcase == "json"
+  if format.downcase == "json" && format != "json_silent"
     puts info.to_json
-  else
+  elsif format != "json_silent"
     puts "\nUtilisateurs humains: #{humains}"
     puts "Humains connectés: #{humains_up}"
   end
+  
+  return info
 end
 
 #5
-
 def espace_disque(format)
   regex = /^(\/dev\/\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+).*$/
   resultat = []
@@ -225,13 +248,15 @@ def espace_disque(format)
     end
   end
 
-  if format.downcase == "json"
+  if format.downcase == "json" && format != "json_silent"
     puts JSON.pretty_generate({ espace_disque_par_partition: resultat })
-  else
+  elsif format != "json_silent"
     resultat.each do |entree|
       puts "Partition: #{entree[:partition]}, Taille: #{entree[:taille]}, Utilisé: #{entree[:utilise]}, Disponible: #{entree[:disponible]}, Dispo%: '#{entree[:dispo_pct]}%'"
     end
   end
+  
+  return resultat
 end
 
 # 6 
@@ -249,15 +274,18 @@ def processes_usage(format, cpu_th, mem_th)
     "Processus Mémoire " => mem_processes.split("\n")
   }
   
-  if format.downcase == "json"
+  if format.downcase == "json" && format != "json_silent"
     puts info.to_json
-  else
+  elsif format != "json_silent"
     puts "\nProcesses with CPU > #{cpu_th}%:"
     puts cpu_processes
     puts "\nProcesses with MEM > #{mem_th}%:"
     puts mem_processes
   end
+  
+  return info
 end
+
 #7
 def analyser_nethogs(flux_min, format)
   resultat = []
@@ -282,13 +310,15 @@ def analyser_nethogs(flux_min, format)
     end
   end
 
-  if format.downcase == 'json'
+  if format.downcase == 'json' && format != "json_silent"
     puts JSON.pretty_generate({ flux_reseau: resultat })
-  else
+  elsif format != "json_silent"
     resultat.each do |entree|
       puts "Interface: #{entree[:interface]}, Envoyé: #{entree[:envoye]} KB, Reçu: #{entree[:recu]} KB"
     end
   end
+  
+  return resultat
 end
 
 # 8
@@ -333,22 +363,43 @@ def services_status(format, services_list = [])
     end
   end
 
-  if format.downcase == "json"
+  if format.downcase == "json" && format != "json_silent"
     puts services_info.to_json
-  else
+  elsif format != "json_silent"
     puts "\nÉtat des services:"
     services_info.each do |service, status|
       puts "#{service} : #{status}"
     end
   end
+  
+  return services_info
 end
 
 ############ EXECUTION ############
-puts nom_distro(format) #1
-puts uptime_avgload_memory_swapavailable(format) #2
-network_interfaces(format) #3
-puts users_humains(format) #4
-espace_disque(format) #5
-puts processes_usage(format, cpu_th, mem_th) #6
-analyser_nethogs(flux_min, format) #7
-services_status(format, services_list) #8
+
+### Mode avec JSON et fichier de sortie spécifié
+if format.downcase == "json" && output_file
+  # Mode JSON avec fichier de sortie - collecte toutes les données
+  all_data = {
+    "timestamp" => Time.now.strftime("%Y-%m-%d %H:%M:%S"),
+    "system_info" => nom_distro("json_silent"),
+    "resources" => uptime_avgload_memory_swapavailable("json_silent"),
+    "network_interfaces" => network_interfaces("json_silent"),
+    "users" => users_humains("json_silent"),
+    "disk_space" => espace_disque("json_silent"),
+    "processes" => processes_usage("json_silent", cpu_th, mem_th),
+    "network_flux" => analyser_nethogs(flux_min, "json_silent"),
+    "services" => services_status("json_silent", services_list)
+  }
+  export_json_to_file(all_data, output_file)
+else
+  # Mode normal (affichage avec les fonctions existantes)
+  nom_distro(format) #1
+  uptime_avgload_memory_swapavailable(format) #2
+  network_interfaces(format) #3
+  users_humains(format) #4
+  espace_disque(format) #5
+  processes_usage(format, cpu_th, mem_th) #6
+  analyser_nethogs(flux_min, format) #7
+  services_status(format, services_list) #8
+end
