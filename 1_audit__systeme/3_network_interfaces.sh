@@ -7,6 +7,7 @@
 # Utilisation de la commande ip pour lister les interfaces réseau avec leurs adresses
 # -o pour format one-line
 ip -o addr show 
+ip -o link show
 
 # Explications complémentaires
 # La commande `ip addr show` affiche les informations des interfaces réseau.

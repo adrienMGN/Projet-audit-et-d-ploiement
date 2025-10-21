@@ -19,8 +19,14 @@ OptionParser.new do |opt|
   opt.on('-e', '--services "service1 service 2 ..." ') { |o| options[:services] = o }
 end.parse!
 
-format = options[:output] || "text"
+############ VARIABLES OPTIONS ############
 
+format = options[:output] || "text"
+cpu_th = options[:cpu] || 5   # défaut 5%
+mem_th = options[:memory] || 5   # défaut 5%
+services_list = options[:services] ? options[:services].split(' ') : []
+
+############ FONCTIONS ############
 # 1
 def nom_distro(format = "text")
   nodename = `uname --nodename`.strip
@@ -92,10 +98,10 @@ def network_interfaces(format = "text")
     # Initialiser l'interface si pas encore présente
     if interfaces_data[iface] == nil
       interfaces_data[iface] = {
-        interface: iface,
-        mac: "N/A",
-        ipv4: [],
-        ipv6: []
+        "Interface" => iface,
+        "MAC" => "N/A",
+        "IPv4" => [],
+        "IPv6" => []
       }
     end
     
@@ -104,17 +110,17 @@ def network_interfaces(format = "text")
       case part
         # IPv4 avec CIDR
       when /^(\d{1,3}\.){3}\d{1,3}\/\d+$/
-        if !interfaces_data[iface][:ipv4].include?(part)
-          interfaces_data[iface][:ipv4] << part
+        if !interfaces_data[iface]["IPv4"].include?(part)
+          interfaces_data[iface]["IPv4"] << part
         end
         # IPv4 sans CIDR
       when /^(\d{1,3}\.){3}\d{1,3}$/
-        if !interfaces_data[iface][:ipv4].include?(part)
-          interfaces_data[iface][:ipv4] << part
+        if !interfaces_data[iface]["IPv4"].include?(part)
+          interfaces_data[iface]["IPv4"] << part
         end
       when /^([0-9a-f]{0,4}:){2,7}[0-9a-f]{0,4}\/\d+$/i
-        if !interfaces_data[iface][:ipv6].include?(part)
-          interfaces_data[iface][:ipv6] << part
+        if !interfaces_data[iface]["IPv6"].include?(part)
+          interfaces_data[iface]["IPv6"] << part
         end
       end
     end
@@ -132,7 +138,7 @@ def network_interfaces(format = "text")
       # Adresse MAC
       if part =~ /^([0-9a-f]{2}:){5}[0-9a-f]{2}$/i
         if interfaces_data[iface]
-          interfaces_data[iface][:mac] = part
+          interfaces_data[iface]["MAC"] = part
         end
         break
       end
@@ -147,13 +153,13 @@ def network_interfaces(format = "text")
   else
     puts "\nInformations Réseau:"
     result.each do |data|
-      puts "Interface: #{data[:interface]}"
-      puts "  MAC: #{data[:mac]}"
+      puts "Interface: #{data["Interface"]}"
+      puts "  MAC: #{data["MAC"]}"
       
-      if data[:ipv4].empty?
+      if data["IPv4"].empty?
         puts "  IPv4: N/A"
       else
-        data[:ipv4].each_with_index do |ip, index|
+        data["IPv4"].each_with_index do |ip, index|
           if index == 0
             puts "  IPv4: #{ip}"
           else
@@ -162,10 +168,10 @@ def network_interfaces(format = "text")
         end
       end
       
-      if data[:ipv6].empty?
+      if data["IPv6"].empty?
         puts "  IPv6: N/A"
       else
-        data[:ipv6].each_with_index do |ip, index|
+        data["IPv6"].each_with_index do |ip, index|
           if index == 0
             puts "  IPv6: #{ip}"
           else
@@ -195,7 +201,87 @@ def users_humains(format = "text")
   end
 end
 
+# 6 
+def processes_usage(format = "text", cpu_th = 5, mem_th = 5)
+  # Processus au-dessus du seuil CPU
+  cpu_processes = `ps -eo pid,user,comm,pcpu,pmem --sort=-pcpu | awk -v th="#{cpu_th}" 'NR==1{print;next} $4+0>th{printf "%s\t%s\t%s\t%s%%\t%s%%\\n",$1,$2,$3,$4,$5}'`.strip
+  
+  # Processus au-dessus du seuil MEM
+  mem_processes = `ps -eo pid,user,comm,pcpu,pmem --sort=-pmem | awk -v th="#{mem_th}" 'NR==1{print;next} $5+0>th{printf "%s\t%s\t%s\t%s%%\t%s%%\\n",$1,$2,$3,$4,$5}'`.strip
+  
+  info = {
+    "Seuil CPU" => "#{cpu_th}%",
+    "Processus CPU " => cpu_processes.split("\n"),
+    "Seuil Mémoire" => "#{mem_th}%",
+    "Processus Mémoire " => mem_processes.split("\n")
+  }
+  
+  if format.downcase == "json"
+    puts info.to_json
+  else
+    puts "\nProcesses with CPU > #{cpu_th}%:"
+    puts cpu_processes
+    puts "\nProcesses with MEM > #{mem_th}%:"
+    puts mem_processes
+  end
+end
+
+# 8
+def services_status(format = "text", services_list = [])
+  if services_list.empty?
+    # Services par défaut si aucun n'est spécifié
+    default_services = ["sshd", "cron", "docker"]
+    
+    services_info = {}
+    
+    default_services.each do |service|
+      service_file = "#{service}.service"
+      
+      # Vérifier si le service existe
+      check_cmd = `systemctl list-unit-files | grep -q "^#{service_file}"`
+      
+      if $?.success?
+        active_status = `systemctl is-active #{service}`.strip
+        enabled_status = `systemctl is-enabled #{service} 2>/dev/null`.strip
+        services_info[service] = "#{active_status} / #{enabled_status}"
+      else
+        services_info[service] = "non présent sur le système"
+      end
+    end
+  else
+    # Services spécifiés par l'utilisateur
+    services_info = {}
+    
+    services_list.each do |service|
+      service_file = "#{service}.service"
+      
+      # Vérifier si le service existe
+      check_cmd = `systemctl list-unit-files | grep -q "^#{service_file}"`
+      
+      if $?.success?
+        active_status = `systemctl is-active #{service}`.strip
+        enabled_status = `systemctl is-enabled #{service} 2>/dev/null`.strip
+        services_info[service] = "#{active_status} / #{enabled_status}"
+      else
+        services_info[service] = "non présent sur le système"
+      end
+    end
+  end
+
+  if format.downcase == "json"
+    puts services_info.to_json
+  else
+    puts "\nÉtat des services:"
+    services_info.each do |service, status|
+      puts "#{service} : #{status}"
+    end
+  end
+end
+
+############ EXECUTION ############
 puts nom_distro(format) #1
 puts uptime_avgload_memory_swapavailable(format) #2
-network_interfaces #3
+network_interfaces(format) #3
 puts users_humains(format) #4
+puts processes_usage(format, cpu_th, mem_th) #6
+puts services_status(format, services_list) #8
