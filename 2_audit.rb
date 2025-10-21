@@ -11,10 +11,8 @@ OptionParser.new do |opt|
   opt.on('-c', '--cpu_threshold THRESHOLD') { |o| options[:cpu] = o }
   # seuil memoire
   opt.on('-m', '--memory_threshold THRESHOLD') { |o| options[:memory] = o }
-  # durée de la mesure 
-  opt.on('-d', '--proc_duration DURATION') { |o| options[:duration] = o }
   # débit réseau
-  opt.on('-s', '--min_speed SPEED') { |o| options[:speed] = o }
+  opt.on('-f', '--flux_min MIN') { |o| options[:flux_min] = o }
   # gestion des services 
   opt.on('-e', '--services "service1 service 2 ..." ') { |o| options[:services] = o }
 end.parse!
@@ -201,6 +199,40 @@ def users_humains(format = "text")
   end
 end
 
+#5
+
+def espace_disque(output)
+  regex = /^(\/dev\/\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+).*$/
+  resultat = []
+
+  `df -h`.each_line do |ligne|
+    if ligne =~ regex
+      partition  = $1
+      taille     = $2
+      utilise    = $3
+      disponible = $4
+      dispo_pct  = $5
+
+      entree = {
+        partition: partition,
+        taille: taille,
+        utilise: utilise,
+        disponible: disponible,
+        dispo_pct:dispo_pct
+      }
+      resultat << entree
+    end
+  end
+
+  if output.downcase == "json"
+    puts JSON.pretty_generate({ espace_disque_par_partition: resultat })
+  else
+    resultat.each do |entree|
+      puts "Partition: #{entree[:partition]}, Taille: #{entree[:taille]}, Utilisé: #{entree[:utilise]}, Disponible: #{entree[:disponible]}, Dispo%: '#{entree[:dispo_pct]}%'"
+    end
+  end
+end
+
 # 6 
 def processes_usage(format = "text", cpu_th = 5, mem_th = 5)
   # Processus au-dessus du seuil CPU
@@ -223,6 +255,38 @@ def processes_usage(format = "text", cpu_th = 5, mem_th = 5)
     puts cpu_processes
     puts "\nProcesses with MEM > #{mem_th}%:"
     puts mem_processes
+  end
+end
+#7
+def analyser_nethogs(seuil: 2, sortie: 'texte')
+  resultat = []
+
+  commande = `timeout 3 nethogs -t -a 2>/dev/null`
+
+  commande.each_line do |ligne|
+    colonnes = ligne.strip.split
+    next if colonnes.size < 3 # ignore les lignes invalides
+
+    interface = colonnes[0]
+    envoye    = colonnes[1].to_f
+    recu      = colonnes[2].to_f
+
+    if (envoye + recu) >= seuil
+      entree = {
+        interface: interface,
+        envoye: envoye.to_s + "KB",
+        recu: recu.to_s + "KB"
+      }
+      resultat << entree
+    end
+  end
+
+  if sortie.downcase == 'json'
+    puts JSON.pretty_generate({ flux_reseau: resultat })
+  else
+    resultat.each do |entree|
+      puts "Interface: #{entree[:interface]}, Envoyé: #{entree[:envoye]} KB, Reçu: #{entree[:recu]} KB"
+    end
   end
 end
 
@@ -283,5 +347,7 @@ puts nom_distro(format) #1
 puts uptime_avgload_memory_swapavailable(format) #2
 network_interfaces(format) #3
 puts users_humains(format) #4
+espace_disque(format) #5
 puts processes_usage(format, cpu_th, mem_th) #6
+analyser_nethogs(seuil: options[:flux_min] ? options[:flux_min].to_i : 2, sortie: format) #7
 puts services_status(format, services_list) #8
