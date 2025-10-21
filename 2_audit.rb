@@ -1,6 +1,8 @@
 #!/usr/bin/env ruby
+
+# librairies utilisées
 require 'json'
-require 'optparse'
+require 'optparse' # gère les options en ligne de commande
 
 # gestion des paramètres
 options = {}
@@ -14,7 +16,7 @@ OptionParser.new do |opt|
   # débit réseau
   opt.on('-f', '--flux_min MIN') { |o| options[:flux_min] = o }
   # gestion des services 
-  opt.on('-e', '--services "service1 service 2 ..." ') { |o| options[:services] = o }
+  opt.on('-s', '--services "service1 service 2 ..." ') { |o| options[:services] = o }
   # fichier de sortie pour JSON
   opt.on('--file PATH') { |o| options[:file] = o }
 end.parse!
@@ -26,20 +28,16 @@ cpu_th = options[:cpu] || 5   # défaut 5%
 mem_th = options[:memory] || 5   # défaut 5%
 flux_min = options[:flux_min] || 2 # défaut 2KB
 services_list = options[:services] ? options[:services].split(' ') : []
-output_file = options[:file] 
+output_file = options[:file] # fichier de sortie pour JSON
 
 ############ FONCTIONS ############
 
 # fonction export json avec header correspondant 
 def export_json_to_file(data, file_path)
-  begin
     File.open(file_path, 'w') do |file|
       file.write(JSON.pretty_generate(data))
+      puts "Données JSON exportées vers: #{file_path}"
     end
-    puts "Données JSON exportées vers: #{file_path}"
-  rescue => e
-    puts "Erreur lors de l'écriture du fichier: #{e.message}"
-  end
 end
 
 # 1
@@ -109,10 +107,10 @@ def network_interfaces(format)
   
   # Traiter les adresses IP
   interfaces_output.lines.each do |line|
-    parts = line.split
-    next if parts.length < 4
+    parts = line.split # split sur \s
+    next if parts.length < 4 # ignore invalide (mini 4 parties)
     
-    iface = parts[1]
+    iface = parts[1] # Nom de l'interface
     
     # Initialiser l'interface si pas encore présente
     if interfaces_data[iface] == nil
@@ -147,7 +145,7 @@ def network_interfaces(format)
   
   # Traiter les adresses MAC avec ip link
   link_output.lines.each do |line|
-    parts = line.split
+    parts = line.split # \s
     next if parts.length < 4
     
     iface = parts[1].gsub(':', '')  # Enlever les : du nom d'interface
@@ -157,6 +155,7 @@ def network_interfaces(format)
       # Adresse MAC
       if part =~ /^([0-9a-f]{2}:){5}[0-9a-f]{2}$/i
         if interfaces_data[iface]
+          # Assigner l'adresse MAC tableau de l'interface interfaces_data[iface] contient pour chaque interface un tableau de données 
           interfaces_data[iface]["MAC"] = part
         end
         break
@@ -164,7 +163,7 @@ def network_interfaces(format)
     end
   end
   
-  # Convertir en array pour la sortie
+  # .values pour obtenir un tableau des valeurs 
   result = interfaces_data.values
   
   if format.downcase == "json" && format != "json_silent"
@@ -174,19 +173,20 @@ def network_interfaces(format)
     result.each do |data|
       puts "Interface: #{data["Interface"]}"
       puts "  MAC: #{data["MAC"]}"
-      
+      ### IPv4
       if data["IPv4"].empty?
         puts "  IPv4: N/A"
       else
+        # each with_index pour numéroter les adresses si plusieurs 
         data["IPv4"].each_with_index do |ip, index|
-          if index == 0
+          if index == 0 
             puts "  IPv4: #{ip}"
           else
             puts "  IPv4 (#{index + 1}): #{ip}"
           end
         end
       end
-      
+      # IPv6
       if data["IPv6"].empty?
         puts "  IPv6: N/A"
       else
@@ -218,7 +218,7 @@ def users_humains(format)
     puts info.to_json
   elsif format != "json_silent"
     puts "\nUtilisateurs humains: #{humains}"
-    puts "Humains connectés: #{humains_up}"
+    puts "Humains connectés: #{humains_up}\n\n"
   end
   
   return info
@@ -226,6 +226,7 @@ end
 
 #5
 def espace_disque(format)
+  # cherche les partitions et les espaces disques /dev/... espce disque 
   regex = /^(\/dev\/\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+).*$/
   resultat = []
 
@@ -287,6 +288,7 @@ def processes_usage(format, cpu_th, mem_th)
 end
 
 #7
+# nécessite de lancér le script avec les droits root pour nethogs
 def analyser_nethogs(flux_min, format)
   resultat = []
 
@@ -330,6 +332,7 @@ def services_status(format, services_list = [])
     services_info = {}
     
     default_services.each do |service|
+      # unit de type service 
       service_file = "#{service}.service"
       
       # Vérifier si le service existe
@@ -353,6 +356,7 @@ def services_status(format, services_list = [])
       # Vérifier si le service existe
       check_cmd = `systemctl list-unit-files | grep -q "^#{service_file}"`
       
+      # $? = code retour de la dernière commande (ici check_cmd)
       if $?.success?
         active_status = `systemctl is-active #{service}`.strip
         enabled_status = `systemctl is-enabled #{service} 2>/dev/null`.strip
@@ -377,11 +381,23 @@ end
 
 ############ EXECUTION ############
 
+### si pas lancer en root avertissement 
+# uid = 0 pour root
+if Process.uid != 0 then
+  puts "##############################################################################"
+  puts "\nAttention: l'analyse du trafic réseau nécessite les droits root pour nethogs.\n"
+  puts 
+  puts "##############################################################################"
+
+end
+
 ### Mode avec JSON et fichier de sortie spécifié
 if format.downcase == "json" && output_file
   # Mode JSON avec fichier de sortie - collecte toutes les données
   all_data = {
+    # date audit
     "timestamp" => Time.now.strftime("%Y-%m-%d %H:%M:%S"),
+    # json_silent pour éviter les affichages intermédiaires
     "system_info" => nom_distro("json_silent"),
     "resources" => uptime_avgload_memory_swapavailable("json_silent"),
     "network_interfaces" => network_interfaces("json_silent"),
@@ -393,7 +409,7 @@ if format.downcase == "json" && output_file
   }
   export_json_to_file(all_data, output_file)
 else
-  # Mode normal (affichage avec les fonctions existantes)
+  # Mode texte stdout
   nom_distro(format) #1
   uptime_avgload_memory_swapavailable(format) #2
   network_interfaces(format) #3
