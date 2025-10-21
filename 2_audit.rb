@@ -1,5 +1,25 @@
 #!/usr/bin/env ruby
 require 'json'
+require 'optparse'
+
+# gestion des paramètres
+options = {}
+OptionParser.new do |opt|
+  # output text ou json
+  opt.on('-o', '--output FORMAT') { |o| options[:output] = o }
+  # seuil cpu
+  opt.on('-c', '--CPU_THRESHOLD THRESHOLD') { |o| options[:cpu] = o }
+  # seuil memoire
+  opt.on('-m', '--MEMORY_THRESHOLD THRESHOLD') { |o| options[:memory] = o }
+  # durée de la mesure 
+  opt.on('-d', '--PROC_DURATION DURATION') { |o| options[:duration] = o }
+  # débit réseau
+  opt.on('-s', '--MIN_SPEED SPEED') { |o| options[:speed] = o }
+  # gestion des services 
+  opt.on('-e', '--services "service1 service 2 ..." ') { |o| options[:services] = o }
+end.parse!
+
+format = options[:output] || "text"
 
 # 1
 def nom_distro(format = "text")
@@ -51,7 +71,6 @@ def uptime_avgload_memory_swapavailable(format = "text")
   end
 end
 
-format = "json"
 puts nom_distro(format)
 puts uptime_avgload_memory_swapavailable(format)
 
