@@ -72,8 +72,7 @@ def uptime_avgload_memory_swapavailable(format = "text")
 end
 
 # 3 
-
-def network(format = "text")
+def network_interfaces(format = "text")
   # Récupérer les informations des interfaces avec leurs adresses IP
   interfaces_output = `ip -o addr show`
   
@@ -179,9 +178,24 @@ def network(format = "text")
   end
 end
 
+# 4
+def users_humains(format = "text")
+  humains = `grep -E '^[^:]+:[^:]*:[0-9]{4,}:' /etc/passwd | cut -d: -f1`.split("\n")
+  humains_up = `who | cut -d' ' -f1 | uniq`.split("\n")
+  info = {
+    "Humains" => humains,
+    "Humains connectés" => humains_up
+  }
 
+  if format.downcase == "json"
+    puts info.to_json
+  else
+    puts "\nUtilisateurs humains: #{humains}"
+    puts "Humains connectés: #{humains_up}"
+  end
+end
 
-puts nom_distro(format)
-puts uptime_avgload_memory_swapavailable(format)
-
-network(format)
+puts nom_distro(format) #1
+puts uptime_avgload_memory_swapavailable(format) #2
+network_interfaces #3
+puts users_humains(format) #4
