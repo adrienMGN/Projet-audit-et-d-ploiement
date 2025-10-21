@@ -207,7 +207,9 @@ end
 
 # 4
 def users_humains(format)
-  humains = `grep -E '^[^:]+:[^:]*:[0-9]{4,}:' /etc/passwd | cut -d: -f1`.split("\n")
+  # Filtrer les utilisateurs avec UID >= 1000 en excluant les comptes système connus
+  excluded_users = ['nobody', 'nogroup', 'nfsnobody']
+  humains = `grep -E '^[^:]+:[^:]*:[0-9]{4,}:' /etc/passwd | cut -d: -f1`.split("\n").reject { |user| excluded_users.include?(user) }
   humains_up = `who | cut -d' ' -f1 | uniq`.split("\n")
   info = {
     "Humains" => humains,
