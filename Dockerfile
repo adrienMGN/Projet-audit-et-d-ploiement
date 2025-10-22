@@ -1,11 +1,15 @@
-FROM ruby:3.2-slim
+FROM debian:bookworm
 
 LABEL description="Container d'audit système via SSH"
+
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
 
 # Installation des dépendances système
 RUN apt-get update && apt-get install -y \
     openssh-client \
     procps \
+    ruby \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
