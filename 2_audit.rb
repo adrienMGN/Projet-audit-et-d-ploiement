@@ -7,19 +7,36 @@ require 'optparse' # gère les options en ligne de commande
 # gestion des paramètres
 options = {}
 OptionParser.new do |opt|
-  # output text ou json
-  opt.on('-o', '--output FORMAT') { |o| options[:output] = o }
-  # seuil cpu
-  opt.on('-c', '--cpu_threshold THRESHOLD') { |o| options[:cpu] = o }
-  # seuil memoire
-  opt.on('-m', '--memory_threshold THRESHOLD') { |o| options[:memory] = o }
-  # débit réseau
-  opt.on('-f', '--flux_min MIN') { |o| options[:flux_min] = o }
-  # gestion des services 
-  opt.on('-s', '--services "service1 service 2 ..." ') { |o| options[:services] = o }
-  # fichier de sortie pour JSON
-  opt.on('--file PATH') { |o| options[:file] = o }
+  opt.banner = "Usage: audit.rb [options]"
+  opt.separator ""
+  opt.separator "Options:"
+  
+  opt.on('-o', '--output FORMAT', "Format de sortie : text (par défaut) ou json") do |o|
+    options[:output] = o
+  end
+  
+  opt.on('-c', '--cpu_threshold THRESHOLD', Float, "Seuil d'utilisation CPU en % (par défaut : 5)") do |c|
+    options[:cpu] = c
+  end
+  
+  opt.on('-m', '--memory_threshold THRESHOLD', Float, "Seuil d'utilisation mémoire en % (par défaut : 5)") do |m|
+    options[:memory] = m
+  end
+  
+  opt.on('-f', '--flux_min MIN', Float, "Flux réseau minimum en KB (par défaut : 2)") do |f|
+    options[:flux_min] = f
+  end
+  
+  opt.on('-s', '--services "service1 service2"', "Liste de services à vérifier (séparés par des espaces)") do |s|
+    options[:services] = s
+  end
+  
+  opt.on('-h', '--help', "Afficher ce message d'aide") do
+    puts opt
+    exit
+  end
 end.parse!
+
 
 ############ VARIABLES OPTIONS ############
 
@@ -280,9 +297,9 @@ def processes_usage(format, cpu_th, mem_th)
   if format.downcase == "json" && format != "json_silent"
     puts info.to_json
   elsif format != "json_silent"
-    puts "\nProcesses with CPU > #{cpu_th}%:"
+    puts "\n Processus CPU > #{cpu_th}%:"
     puts cpu_processes
-    puts "\nProcesses with MEM > #{mem_th}%:"
+    puts "\nProcessus avec MEM > #{mem_th}%:"
     puts mem_processes
   end
   
@@ -317,6 +334,7 @@ def analyser_nethogs(flux_min, format)
   if format.downcase == 'json' && format != "json_silent"
     puts JSON.pretty_generate({ flux_reseau: resultat })
   elsif format != "json_silent"
+    puts "\nFlux Réseau (supérieur à #{flux_min} KB):"
     resultat.each do |entree|
       puts "Interface: #{entree[:interface]}, Envoyé: #{entree[:envoye]} KB, Reçu: #{entree[:recu]} KB"
     end
@@ -327,58 +345,35 @@ end
 
 # 8
 def services_status(format, services_list = [])
-  if services_list.empty?
-    # Services par défaut si aucun n'est spécifié
-    default_services = ["sshd", "cron", "docker"]
-    
-    services_info = {}
-    
-    default_services.each do |service|
-      # unit de type service 
-      service_file = "#{service}.service"
-      
-      # Vérifier si le service existe
-      check_cmd = `systemctl list-unit-files | grep -q "^#{service_file}"`
-      
-      if $?.success?
-        active_status = `systemctl is-active #{service}`.strip
-        enabled_status = `systemctl is-enabled #{service} 2>/dev/null`.strip
-        services_info[service] = "#{active_status} / #{enabled_status}"
-      else
-        services_info[service] = "non présent sur le système"
-      end
-    end
-  else
-    # Services spécifiés par l'utilisateur
-    services_info = {}
-    
-    services_list.each do |service|
-      service_file = "#{service}.service"
-      
-      # Vérifier si le service existe
-      check_cmd = `systemctl list-unit-files | grep -q "^#{service_file}"`
-      
-      # $? = code retour de la dernière commande (ici check_cmd)
-      if $?.success?
-        active_status = `systemctl is-active #{service}`.strip
-        enabled_status = `systemctl is-enabled #{service} 2>/dev/null`.strip
-        services_info[service] = "#{active_status} / #{enabled_status}"
-      else
-        services_info[service] = "non présent sur le système"
-      end
+  default_services = %w[sshd cron docker]
+  to_check = services_list.empty? ? default_services : services_list
+  services_info = {}
+
+  to_check.each do |svc|
+    unit = svc.end_with?('.service') ? svc : "#{svc}.service"
+
+    # vérifier présence de l'unité
+    exists = system("systemctl list-unit-files | grep -w -q \"^#{unit}\" 2>/dev/null")
+
+    if exists
+      # utiliser le nom court (sans .service) pour is-active/is-enabled est acceptable
+      name_for_state = svc.sub(/\.service\z/, '')
+      active_status = `systemctl is-active #{name_for_state} 2>/dev/null`.strip
+      enabled_status = `systemctl is-enabled #{name_for_state} 2>/dev/null`.strip
+      services_info[name_for_state] = "#{active_status} / #{enabled_status}"
+    else
+      services_info[svc.sub(/\.service\z/, '')] = "non présent sur le système"
     end
   end
 
   if format.downcase == "json" && format != "json_silent"
-    puts services_info.to_json
+    puts JSON.pretty_generate(services_info)
   elsif format != "json_silent"
     puts "\nÉtat des services:"
-    services_info.each do |service, status|
-      puts "#{service} : #{status}"
-    end
+    services_info.each { |service, status| puts "#{service} : #{status}" }
   end
-  
-  return services_info
+
+  services_info
 end
 
 ############ EXECUTION ############
