@@ -307,12 +307,33 @@ end
 
 # 6 
 def processes_usage(format, cpu_th, mem_th)
-  # Processus au-dessus du seuil CPU
-  cpu_processes = run_remote("ps -eo pid,user,comm,pcpu,pmem --sort=-pcpu | awk -v th=\"#{cpu_th}\" 'NR==1{print;next} $4+0>th{printf \"%s\\t%s\\t%s\\t%s%%\\t%s%%\\n\",$1,$2,$3,$4,$5}'").strip
+  # Récupérer tous les processus
+  all_processes = run_remote("ps -eo pid,user,comm,%cpu,%mem --sort=-%cpu").strip
   
-  # Processus au-dessus du seuil MEM
-  mem_processes = run_remote("ps -eo pid,user,comm,pcpu,pmem --sort=-pmem | awk -v th=\"#{mem_th}\" 'NR==1{print;next} $5+0>th{printf \"%s\\t%s\\t%s\\t%s%%\\t%s%%\\n\",$1,$2,$3,$4,$5}'").strip
-
+  lines = all_processes.split("\n")
+  header = lines.first
+  
+  # Filtrer les processus CPU
+  cpu_lines = [header]
+  lines[1..-1].each do |line|
+    fields = line.split
+    cpu_value = fields[3].to_f
+    cpu_lines << line if cpu_value > cpu_th
+  end
+  cpu_processes = cpu_lines.join("\n")
+  
+  # Récupérer et filtrer les processus MEM
+  all_processes_mem = run_remote("ps -eo pid,user,comm,%cpu,%mem --sort=-%mem").strip
+  lines_mem = all_processes_mem.split("\n")
+  
+  mem_lines = [header]
+  lines_mem[1..-1].each do |line|
+    fields = line.split
+    mem_value = fields[4].to_f
+    mem_lines << line if mem_value > mem_th
+  end
+  mem_processes = mem_lines.join("\n")
+  
   info = {
     "Seuil CPU" => "#{cpu_th}%",
     "Processus CPU" => cpu_processes.split("\n"),
@@ -324,14 +345,14 @@ def processes_usage(format, cpu_th, mem_th)
     puts info.to_json
   elsif format != "json_silent"
     puts "\nProcessus CPU > #{cpu_th}%:"
-    if cpu_processes.empty? || cpu_processes.split("\n").length <= 1
+    if cpu_lines.length <= 1
       puts "  Aucun processus au-dessus du seuil"
     else
       puts cpu_processes
     end
     
     puts "\nProcessus avec MEM > #{mem_th}%:"
-    if mem_processes.empty? || mem_processes.split("\n").length <= 1
+    if mem_lines.length <= 1
       puts "  Aucun processus au-dessus du seuil"
     else
       puts mem_processes
@@ -340,6 +361,7 @@ def processes_usage(format, cpu_th, mem_th)
   
   return info
 end
+
 #7
 # nécessite de lancér le script avec les droits root pour nethogs
 def analyser_nethogs(flux_min, format)
