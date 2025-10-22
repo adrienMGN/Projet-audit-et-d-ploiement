@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 echo "=== Configuration de l'audit système Docker ==="
 
@@ -6,7 +6,7 @@ echo "=== Configuration de l'audit système Docker ==="
 if ! systemctl is-active --quiet ssh; then
     echo "Installation du serveur SSH..."
     sudo apt-get update
-    sudo apt-get install -y openssh-server
+    sudo apt-get install -y openssh-server nethogs
     sudo systemctl enable ssh
     sudo systemctl start ssh
 fi
@@ -27,14 +27,14 @@ sudo chmod 700 /root/.ssh
 
 
 
-# 5. Créer le répertoire de sortie
-mkdir -p ./output
+# 4. Créer le répertoire de sortie
+mkdir output
 
-# 6. Build et lancement du conteneur
+# 5. Build et lancement du conteneur
 echo "Construction de l'image Docker..."
 docker compose build
 
 echo "Lancement de l'audit..."
-docker compose up
+docker compose run --rm audit "$@"
 
 echo "=== Audit terminé ==="
