@@ -35,6 +35,10 @@ OptionParser.new do |opt|
     puts opt
     exit
   end
+
+  opt.on('-p', '--file PATH', "Fichier de sortie pour JSON") do |p|
+    options[:file] = p
+  end
 end.parse!
 
 
