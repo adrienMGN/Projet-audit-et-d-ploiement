@@ -11,6 +11,13 @@ if ! systemctl is-active --quiet ssh; then
     sudo systemctl start ssh
 fi
 
+# vérifier si nethogs est installé
+if ! command -v nethogs &> /dev/null; then
+    echo "Installation de nethogs..."
+    sudo apt-get update
+    sudo apt-get install -y nethogs
+fi
+
 # 2. Générer les clés SSH si elles n'existent pas
 if [ ! -f ./ssh-keys/id_rsa ]; then
     echo "Génération des clés SSH..."
