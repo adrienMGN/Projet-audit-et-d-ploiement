@@ -51,11 +51,28 @@ flux_min = options[:flux_min] || 2 # défaut 2KB
 services_list = options[:services] ? options[:services].split(' ') : []
 output_file = options[:file] # fichier de sortie pour JSON
 
+######################## Execution distante ########################
+# Configuration SSH pour exécuter les commandes sur la machine distante
+HOST = ENV['TARGET_HOST'] || 'host.docker.internal' # adresse de la machine distante
+USER = ENV['TARGET_USER'] || 'root' # utilisateur SSH 
+KEY  = ENV['SSH_KEY_PATH'] || '/root/.ssh/id_rsa' # chemin vers la clé privée SSH dans le conteneur
+
+# Fonction pour exécuter une commande distante via SSH
+def run_remote(cmd)
+  # -o options pour éviter les prompts d'authenticité de l'hôte
+  ssh_cmd = "ssh -o StrictHostKeyChecking=no -i #{KEY} #{USER}@#{HOST} \"#{cmd}\" 2>/dev/null"
+  result = `#{ssh_cmd}`
+  return result.strip
+end
+
+
 ############ FONCTIONS ############
+# remplace les appels système par des exécutions distantes avec run_remote
 
 # fonction export json avec header correspondant 
 def export_json_to_file(data, file_path)
     File.open(file_path, 'w') do |file|
+      # écrire les données JSON formatées dans le fichier avec la date
       file.write(JSON.pretty_generate(data))
       puts "Données JSON exportées vers: #{file_path}"
     end
@@ -63,9 +80,9 @@ end
 
 # 1
 def nom_distro(format)
-  nodename = `uname --nodename`.strip
-  distrib = `lsb_release -a 2>/dev/null | grep Description | cut -f2`.strip
-  kernel_ver = `uname -r`.strip
+  nodename = run_remote("uname --nodename").strip
+  distrib = run_remote("lsb_release -a 2>/dev/null | grep Description | cut -f2").strip
+  kernel_ver = run_remote("uname -r").strip
 
   infos = {
     "Nom de la machine" => nodename,
@@ -86,10 +103,10 @@ end
 
 # 2
 def uptime_avgload_memory_swapavailable(format)
-  uptime = `uptime -p`.strip
-  load_avg = `LANG=C uptime | grep -o 'load average:.*' | cut -d':' -f2`.strip
-  mem_info = `LANG=C free -h | grep Mem: | tr -s ' ' | cut -d' ' -f3,4`.strip
-  swap_info = `LANG=C free -h | grep Swap: | tr -s ' ' | cut -d' ' -f3,4`.strip
+  uptime = run_remote("uptime -p").strip
+  load_avg = run_remote("LANG=C uptime | grep -o 'load average:.*' | cut -d':' -f2").strip
+  mem_info = run_remote("LANG=C free -h | grep Mem: | tr -s ' ' | cut -d' ' -f3,4").strip
+  swap_info = run_remote("LANG=C free -h | grep Swap: | tr -s ' ' | cut -d' ' -f3,4").strip
 
   mem_used, mem_dispo = mem_info.split(' ')
   swap_used, swap_dispo = swap_info.split(' ')
@@ -118,11 +135,11 @@ end
 # 3 
 def network_interfaces(format)
   # Récupérer les informations des interfaces avec leurs adresses IP
-  interfaces_output = `ip -o addr show`
+  interfaces_output = run_remote("ip -o addr show")
   
   # Récupérer les adresses MAC avec ip link show
-  link_output = `ip -o link show`
-  
+  link_output = run_remote("ip -o link show")
+
   # Grouper par interface
   interfaces_data = {}
   
@@ -230,8 +247,11 @@ end
 def users_humains(format)
   # Filtrer les utilisateurs avec UID >= 1000 en excluant les comptes système connus
   excluded_users = ['nobody', 'nogroup', 'nfsnobody']
-  humains = `grep -E '^[^:]+:[^:]*:[0-9]{4,}:' /etc/passwd | cut -d: -f1`.split("\n").reject { |user| excluded_users.include?(user) }
-  humains_up = `who | cut -d' ' -f1 | uniq`.split("\n")
+  
+  # Correction : enlever les backticks dans run_remote
+  humains = run_remote("grep -E '^[^:]+:[^:]*:[0-9]{4,}:' /etc/passwd | cut -d: -f1").split("\n").reject { |user| excluded_users.include?(user) }
+  humains_up = run_remote("who | cut -d' ' -f1 | sort -u").split("\n")
+  
   info = {
     "Humains" => humains,
     "Humains connectés" => humains_up
@@ -240,20 +260,20 @@ def users_humains(format)
   if format.downcase == "json" && format != "json_silent"
     puts info.to_json
   elsif format != "json_silent"
-    puts "\nUtilisateurs humains: #{humains}"
-    puts "Humains connectés: #{humains_up}\n\n"
+    puts "\nUtilisateurs humains: #{humains.empty? ? 'Aucun' : humains.join(', ')}"
+    puts "Humains connectés: #{humains_up.empty? ? 'Aucun' : humains_up.join(', ')}\n\n"
   end
   
   return info
 end
-
 #5
 def espace_disque(format)
-  # cherche les partitions et les espaces disques /dev/... espce disque 
+  # cherche les partitions et les espaces disques /dev/... 
   regex = /^(\/dev\/\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+).*$/
   resultat = []
 
-  `df -h`.each_line do |ligne|
+  # Correction : enlever les backticks
+  run_remote("df -h").each_line do |ligne|
     if ligne =~ regex
       partition  = $1
       taille     = $2
@@ -266,7 +286,7 @@ def espace_disque(format)
         taille: taille,
         utilise: utilise,
         disponible: disponible,
-        dispo_pct:dispo_pct
+        dispo_pct: dispo_pct
       }
       resultat << entree
     end
@@ -275,8 +295,9 @@ def espace_disque(format)
   if format.downcase == "json" && format != "json_silent"
     puts JSON.pretty_generate({ espace_disque_par_partition: resultat })
   elsif format != "json_silent"
+    puts "\nEspace disque par partition:"
     resultat.each do |entree|
-      puts "Partition: #{entree[:partition]}, Taille: #{entree[:taille]}, Utilisé: #{entree[:utilise]}, Disponible: #{entree[:disponible]}, Dispo%: '#{entree[:dispo_pct]}%'"
+      puts "Partition: #{entree[:partition]}, Taille: #{entree[:taille]}, Utilisé: #{entree[:utilise]}, Disponible: #{entree[:disponible]}, Dispo%: #{entree[:dispo_pct]}"
     end
   end
   
@@ -286,36 +307,45 @@ end
 # 6 
 def processes_usage(format, cpu_th, mem_th)
   # Processus au-dessus du seuil CPU
-  cpu_processes = `ps -eo pid,user,comm,pcpu,pmem --sort=-pcpu | awk -v th="#{cpu_th}" 'NR==1{print;next} $4+0>th{printf "%s\t%s\t%s\t%s%%\t%s%%\\n",$1,$2,$3,$4,$5}'`.strip
+  cpu_processes = run_remote("ps -eo pid,user,comm,pcpu,pmem --sort=-pcpu | awk -v th=\"#{cpu_th}\" 'NR==1{print;next} $4+0>th{printf \"%s\\t%s\\t%s\\t%s%%\\t%s%%\\n\",$1,$2,$3,$4,$5}'").strip
   
   # Processus au-dessus du seuil MEM
-  mem_processes = `ps -eo pid,user,comm,pcpu,pmem --sort=-pmem | awk -v th="#{mem_th}" 'NR==1{print;next} $5+0>th{printf "%s\t%s\t%s\t%s%%\t%s%%\\n",$1,$2,$3,$4,$5}'`.strip
-  
+  mem_processes = run_remote("ps -eo pid,user,comm,pcpu,pmem --sort=-pmem | awk -v th=\"#{mem_th}\" 'NR==1{print;next} $5+0>th{printf \"%s\\t%s\\t%s\\t%s%%\\t%s%%\\n\",$1,$2,$3,$4,$5}'").strip
+
   info = {
     "Seuil CPU" => "#{cpu_th}%",
-    "Processus CPU " => cpu_processes.split("\n"),
+    "Processus CPU" => cpu_processes.split("\n"),
     "Seuil Mémoire" => "#{mem_th}%",
-    "Processus Mémoire " => mem_processes.split("\n")
+    "Processus Mémoire" => mem_processes.split("\n")
   }
   
   if format.downcase == "json" && format != "json_silent"
     puts info.to_json
   elsif format != "json_silent"
-    puts "\n Processus CPU > #{cpu_th}%:"
-    puts cpu_processes
+    puts "\nProcessus CPU > #{cpu_th}%:"
+    if cpu_processes.empty? || cpu_processes.split("\n").length <= 1
+      puts "  Aucun processus au-dessus du seuil"
+    else
+      puts cpu_processes
+    end
+    
     puts "\nProcessus avec MEM > #{mem_th}%:"
-    puts mem_processes
+    if mem_processes.empty? || mem_processes.split("\n").length <= 1
+      puts "  Aucun processus au-dessus du seuil"
+    else
+      puts mem_processes
+    end
   end
   
   return info
 end
-
 #7
 # nécessite de lancér le script avec les droits root pour nethogs
 def analyser_nethogs(flux_min, format)
   resultat = []
 
-  commande = `timeout 3 nethogs -t -a 2>/dev/null`
+  # Correction : enlever les backticks
+  commande = run_remote("timeout 3 nethogs -t -a 2>/dev/null")
 
   commande.each_line do |ligne|
     colonnes = ligne.strip.split
@@ -339,31 +369,37 @@ def analyser_nethogs(flux_min, format)
     puts JSON.pretty_generate({ flux_reseau: resultat })
   elsif format != "json_silent"
     puts "\nFlux Réseau (supérieur à #{flux_min} KB):"
-    resultat.each do |entree|
-      puts "Interface: #{entree[:interface]}, Envoyé: #{entree[:envoye]} KB, Reçu: #{entree[:recu]} KB"
+    if resultat.empty?
+      puts "  Aucun flux réseau détecté au-dessus du seuil"
+    else
+      resultat.each do |entree|
+        puts "Interface: #{entree[:interface]}, Envoyé: #{entree[:envoye]}, Reçu: #{entree[:recu]}"
+      end
     end
   end
   
   return resultat
 end
-
 # 8
 def services_status(format, services_list = [])
-  default_services = %w[sshd cron docker]
+  # notation des services par défaut %w crée un tableau de chaînes
+  default_services = %w[ssh cron docker]
   to_check = services_list.empty? ? default_services : services_list
   services_info = {}
 
+  # boucle sur chaque service à vérifier
   to_check.each do |svc|
+    # ajouter .service si pas déjà présent (traite unité systemd de type service)
     unit = svc.end_with?('.service') ? svc : "#{svc}.service"
 
     # vérifier présence de l'unité
-    exists = system("systemctl list-unit-files | grep -w -q \"^#{unit}\" 2>/dev/null")
+    exists_check = run_remote("systemctl list-unit-files #{unit} 2>/dev/null | grep -q '#{unit}' && echo 'exists' || echo 'notfound'").strip
 
-    if exists
-      # utiliser le nom court (sans .service) pour is-active/is-enabled est acceptable
+    if exists_check == "exists"
+      # utiliser le nom court (sans .service) pour is-active/is-enabled
       name_for_state = svc.sub(/\.service\z/, '')
-      active_status = `systemctl is-active #{name_for_state} 2>/dev/null`.strip
-      enabled_status = `systemctl is-enabled #{name_for_state} 2>/dev/null`.strip
+      active_status = run_remote("systemctl is-active #{name_for_state} 2>/dev/null").strip
+      enabled_status = run_remote("systemctl is-enabled #{name_for_state} 2>/dev/null").strip
       services_info[name_for_state] = "#{active_status} / #{enabled_status}"
     else
       services_info[svc.sub(/\.service\z/, '')] = "non présent sur le système"
@@ -379,7 +415,6 @@ def services_status(format, services_list = [])
 
   services_info
 end
-
 ############ EXECUTION ############
 
 ### si pas lancer en root avertissement 

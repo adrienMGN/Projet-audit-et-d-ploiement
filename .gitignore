@@ -1,0 +1,23 @@
+# SSH keys
+ssh-keys/
+*.pem
+*.key
+id_rsa
+id_rsa.pub
+
+# Output directory
+output/
+
+# Docker
+.env
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
