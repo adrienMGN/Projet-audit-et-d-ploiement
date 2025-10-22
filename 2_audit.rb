@@ -50,7 +50,21 @@ cpu_th = options[:cpu] || 5   # défaut 5%
 mem_th = options[:memory] || 5   # défaut 5%
 flux_min = options[:flux_min] || 2 # défaut 2KB
 services_list = options[:services] ? options[:services].split(' ') : []
-output_file = options[:file] # fichier de sortie pour JSON
+# shinté l'option car le docker envoie dans le dir /output/
+# prend le nom du fichier spécifié sans le path et si pas de path défini
+# extraire le nom du fichier de l'input utilisé (split sur / et prendre le dernier élément)
+
+# exemple /var/log/audit.json -> /output/audit.json ou /test1/test2/test3 -> /output/test3
+
+# Si un fichier de sortie est spécifié, extraire le nom et l'ajuster pour /output/
+if options[:file]
+  # Extraire le nom du fichier sans le chemin
+  file_name = File.basename(options[:file])
+  # Créer le chemin complet vers /output/
+  output_file_path = File.join('/output', file_name)
+else
+  output_file_path = nil
+end
 
 ######################## Execution distante ########################
 # Configuration SSH pour exécuter les commandes sur la machine distante
@@ -451,7 +465,7 @@ if Process.uid != 0 then
 end
 
 ### Mode avec JSON et fichier de sortie spécifié
-if format.downcase == "json" && output_file
+if format.downcase == "json" && output_file_path
   # Mode JSON avec fichier de sortie - collecte toutes les données
   all_data = {
     # date audit
@@ -466,7 +480,7 @@ if format.downcase == "json" && output_file
     "network_flux" => analyser_nethogs(flux_min, "json_silent"),
     "services" => services_status("json_silent", services_list)
   }
-  export_json_to_file(all_data, output_file)
+  export_json_to_file(all_data, output_file_path)
 else
   # Mode texte stdout
   nom_distro(format) #1
