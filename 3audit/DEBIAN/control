@@ -1,0 +1,8 @@
+Package: 3audit
+Version: 1.0.0
+Section: utils
+Priority: optional
+Architecture: amd64
+Maintainer: Gabriel Comte <gabriel.comte2006@gmail.com>
+Description: Une application qui fait un audit de sécurité
+Depends: bash (>= 5.0)
