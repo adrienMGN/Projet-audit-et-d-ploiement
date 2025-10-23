@@ -5,4 +5,4 @@ Priority: optional
 Architecture: amd64
 Maintainer: Gabriel Comte <gabriel.comte2006@gmail.com>
 Description: Une application qui fait un audit de sécurité
-Depends: bash (>= 5.0)
+Depends: ruby (>= 3.0), nethogs
