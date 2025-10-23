@@ -173,3 +173,9 @@ Le script `deploy.sh` automatise l'installation et la configuration complète :
 **5. Build et lancement**
 - Construit l'image Docker avec les dépendances
 - Lance le conteneur d'audit avec les paramètres fournis
+
+# Paquet Debian
+
+Un paquet Debian (.deb) est proposé afin de faciliter le déploiement sur les systèmes basés Debian/Ubuntu.
+Le paquet contient les fichiers binaires et les fichiers de configuration nécessaires pour installer l'application rapidement.
+Il ajoute aussi la page de manuel complète `man 3audit` qui spécifie la syntaxe, les arguments et les dépendances.
