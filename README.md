@@ -46,7 +46,7 @@ Projet-audit-et-d-ploiement/
 ├── 2_audit.rb                   # Script Ruby d'audit système
 ├── .gitignore                   # Fichiers et dossiers ignorés par Git
 │
-├── 1_audit__systeme/            # Scripts bash individuels (référence)
+├── 1_audit__systeme/            # Scripts bash individuels (références)
 │   ├── 1_nom_distro.sh
 │   ├── 2_uptime_avgload_memory_swapavailable.sh
 │   ├── 3_network_interfaces.sh
@@ -95,21 +95,22 @@ Les rapports peuvent être générés en :
 - **Format texte** (stdout par défaut)
 - **Format JSON** (avec l'option `-o json -p fichier.json`)
 
-Les fichiers JSON sont automatiquement sauvegardés dans `./output/`
+Les fichiers JSON sont automatiquement sauvegardés dans `./output/` par défaut.
+On peut aussi utiliser l'argument -p pour spécifier le fichier de sortie.
 
 ---
 
 ## Documentation
 
 Consultez la page de manuel : `3audit/usr/local/share/man/man1/3audit.1`
-
+On peut consulter la page du manuel avec `man 3audit` lorsque le packet debian est installé.
 
 # Détails partie 1
 
-Afin de versionner nos réponses à la première partie du sujet qui consistent en des commandes Unix, nous avons décidé d’enregistrer nos réponses dans des scripts shell, et de séparer en plusieurs fichiers les commandes, un par ligne dans le sujet (pour un total donc de 8 scripts .sh).
+Afin de versionner nos réponses à la première partie du sujet qui consistent en des commandes Unix, nous avons décidé d’enregistrer nos réponses dans des scripts shell.
+Les commandes sont ainsi séparéees en plusieurs fichiers, un par ligne dans le sujet (pour un total donc de 8 scripts .sh).
 
-
-Ca a aussi permis rapidement compléter le script ruby de la deuxième partie, puisqu’on possédait déjà les commandes avec les arguments appropriés pour ne récupérer que les données nécessaires.
+Ca a aussi facilité la réalisation du script ruby de la deuxième partie, puisqu’on possédait déjà les commandes avec les arguments appropriés pour ne récupérer que les données nécessaires.
 
 # Docker explication
 
