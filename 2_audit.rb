@@ -63,6 +63,7 @@ if options[:file]
   # Créer le chemin complet vers /output/
   output_file_path = File.join('/output', file_name)
 else
+  # sinon pas de fichier de sortie (mode texte stdout)
   output_file_path = nil
 end
 
@@ -464,7 +465,7 @@ if Process.uid != 0 then
 
 end
 
-### Mode avec JSON et fichier de sortie spécifié
+### Mode avec JSON et fichier de sortie spécifié (si vaut nil alors mode texte stdout)
 if format.downcase == "json" && output_file_path
   # Mode JSON avec fichier de sortie - collecte toutes les données
   all_data = {
