@@ -5,8 +5,23 @@
 require 'json'
 require 'optparse' # gère les options en ligne de commande
 
+# Codes de couleur ANSI pour l'affichage coloré
+class Colors
+  RED = "\033[31m"
+  GREEN = "\033[32m"
+  YELLOW = "\033[33m"
+  BLUE = "\033[34m"
+  MAGENTA = "\033[35m"
+  CYAN = "\033[36m"
+  WHITE = "\033[37m"
+  BOLD = "\033[1m"
+  RESET = "\033[0m"
+end
+
 # gestion des paramètres
 options = {}
+
+
 OptionParser.new do |opt|
   opt.banner = "Usage: audit.rb [options]"
   opt.separator ""
@@ -109,9 +124,9 @@ def nom_distro(format)
   if format.downcase == "json" && format != "json_silent"
     puts infos.to_json
   elsif format != "json_silent"
-    puts "\nNom de la machine: #{nodename}"
-    puts "Distribution: #{distrib}"
-    puts "Version du kernel: #{kernel_ver}"
+    puts "\n#{Colors::BOLD}#{Colors::CYAN}Nom de la machine:#{Colors::RESET} #{nodename}"
+    puts "#{Colors::BOLD}#{Colors::CYAN}Distribution:#{Colors::RESET} #{distrib}"
+    puts "#{Colors::BOLD}#{Colors::CYAN}Version du kernel:#{Colors::RESET} #{kernel_ver}"
   end
   
   return infos
@@ -139,10 +154,10 @@ def uptime_avgload_memory_swapavailable(format)
   if format.downcase == "json" && format != "json_silent"
     puts info.to_json
   elsif format != "json_silent"
-    puts "\nUptime: #{uptime}"
-    puts "Charge moyenne (1, 5, 15 min): #{load_avg}"
-    puts "Mémoire utilisée | disponible: #{mem_used} | #{mem_dispo}"
-    puts "Swap utilisé | disponible: #{swap_used} | #{swap_dispo}"
+    puts "\n#{Colors::BOLD}#{Colors::GREEN}Uptime:#{Colors::RESET} #{uptime}"
+    puts "#{Colors::BOLD}#{Colors::GREEN}Charge moyenne (1, 5, 15 min):#{Colors::RESET} #{load_avg}"
+    puts "#{Colors::BOLD}#{Colors::GREEN}Mémoire utilisée | disponible:#{Colors::RESET} #{mem_used} | #{mem_dispo}"
+    puts "#{Colors::BOLD}#{Colors::GREEN}Swap utilisé | disponible:#{Colors::RESET} #{swap_used} | #{swap_dispo}"
   end
   
   return info
@@ -223,32 +238,32 @@ def network_interfaces(format)
   if format.downcase == "json" && format != "json_silent"
     puts result.to_json
   elsif format != "json_silent"
-    puts "\nInformations Réseau:"
+    puts "\n#{Colors::BOLD}#{Colors::MAGENTA}Informations Réseau:#{Colors::RESET}"
     result.each do |data|
-      puts "Interface: #{data["Interface"]}"
-      puts "  MAC: #{data["MAC"]}"
+      puts "#{Colors::YELLOW}Interface:#{Colors::RESET} #{data["Interface"]}"
+      puts "  #{Colors::CYAN}MAC:#{Colors::RESET} #{data["MAC"]}"
       ### IPv4
       if data["IPv4"].empty?
-        puts "  IPv4: N/A"
+        puts "  #{Colors::CYAN}IPv4:#{Colors::RESET} N/A"
       else
         # each with_index pour numéroter les adresses si plusieurs 
         data["IPv4"].each_with_index do |ip, index|
           if index == 0 
-            puts "  IPv4: #{ip}"
+            puts "  #{Colors::CYAN}IPv4:#{Colors::RESET} #{ip}"
           else
-            puts "  IPv4 (#{index + 1}): #{ip}"
+            puts "  #{Colors::CYAN}IPv4 (#{index + 1}):#{Colors::RESET} #{ip}"
           end
         end
       end
       # IPv6
       if data["IPv6"].empty?
-        puts "  IPv6: N/A"
+        puts "  #{Colors::CYAN}IPv6:#{Colors::RESET} N/A"
       else
         data["IPv6"].each_with_index do |ip, index|
           if index == 0
-            puts "  IPv6: #{ip}"
+            puts "  #{Colors::CYAN}IPv6:#{Colors::RESET} #{ip}"
           else
-            puts "  IPv6 (#{index + 1}): #{ip}"
+            puts "  #{Colors::CYAN}IPv6 (#{index + 1}):#{Colors::RESET} #{ip}"
           end
         end
       end
@@ -276,8 +291,8 @@ def users_humains(format)
   if format.downcase == "json" && format != "json_silent"
     puts info.to_json
   elsif format != "json_silent"
-    puts "\nUtilisateurs humains: #{humains.empty? ? 'Aucun' : humains.join(', ')}"
-    puts "Humains connectés: #{humains_up.empty? ? 'Aucun' : humains_up.join(', ')}\n\n"
+    puts "\n#{Colors::BOLD}#{Colors::BLUE}Utilisateurs humains:#{Colors::RESET} #{humains.empty? ? 'Aucun' : humains.join(', ')}"
+    puts "#{Colors::BOLD}#{Colors::BLUE}Humains connectés:#{Colors::RESET} #{humains_up.empty? ? 'Aucun' : humains_up.join(', ')}\n\n"
   end
   
   return info
@@ -311,9 +326,9 @@ def espace_disque(format)
   if format.downcase == "json" && format != "json_silent"
     puts JSON.pretty_generate({ espace_disque_par_partition: resultat })
   elsif format != "json_silent"
-    puts "\nEspace disque par partition:"
+    puts "\n#{Colors::BOLD}#{Colors::YELLOW}Espace disque par partition:#{Colors::RESET}"
     resultat.each do |entree|
-      puts "Partition: #{entree[:partition]}, Taille: #{entree[:taille]}, Utilisé: #{entree[:utilise]}, Disponible: #{entree[:disponible]}, Dispo%: #{entree[:dispo_pct]}"
+      puts "#{Colors::GREEN}Partition:#{Colors::RESET} #{entree[:partition]}, #{Colors::GREEN}Taille:#{Colors::RESET} #{entree[:taille]}, #{Colors::GREEN}Utilisé:#{Colors::RESET} #{entree[:utilise]}, #{Colors::GREEN}Disponible:#{Colors::RESET} #{entree[:disponible]}, #{Colors::GREEN}Dispo%:#{Colors::RESET} #{entree[:dispo_pct]}"
     end
   end
   
@@ -359,14 +374,14 @@ def processes_usage(format, cpu_th, mem_th)
   if format.downcase == "json" && format != "json_silent"
     puts info.to_json
   elsif format != "json_silent"
-    puts "\nProcessus CPU > #{cpu_th}%:"
+    puts "\n#{Colors::BOLD}#{Colors::RED}Processus CPU > #{cpu_th}%:#{Colors::RESET}"
     if cpu_lines.length <= 1
       puts "  Aucun processus au-dessus du seuil"
     else
       puts cpu_processes
     end
     
-    puts "\nProcessus avec MEM > #{mem_th}%:"
+    puts "\n#{Colors::BOLD}#{Colors::RED}Processus avec MEM > #{mem_th}%:#{Colors::RESET}"
     if mem_lines.length <= 1
       puts "  Aucun processus au-dessus du seuil"
     else
@@ -406,12 +421,12 @@ def analyser_nethogs(flux_min, format)
   if format.downcase == 'json' && format != "json_silent"
     puts JSON.pretty_generate({ flux_reseau: resultat })
   elsif format != "json_silent"
-    puts "\nFlux Réseau (supérieur à #{flux_min} KB):"
+    puts "\n#{Colors::BOLD}#{Colors::CYAN}Flux Réseau (supérieur à #{flux_min} KB):#{Colors::RESET}"
     if resultat.empty?
       puts "  Aucun flux réseau détecté au-dessus du seuil"
     else
       resultat.each do |entree|
-        puts "Interface: #{entree[:interface]}, Envoyé: #{entree[:envoye]}, Reçu: #{entree[:recu]}"
+        puts "#{Colors::MAGENTA}Interface:#{Colors::RESET} #{entree[:interface]}, #{Colors::MAGENTA}Envoyé:#{Colors::RESET} #{entree[:envoye]}, #{Colors::MAGENTA}Reçu:#{Colors::RESET} #{entree[:recu]}"
       end
     end
   end
@@ -447,8 +462,8 @@ def services_status(format, services_list = [])
   if format.downcase == "json" && format != "json_silent"
     puts JSON.pretty_generate(services_info)
   elsif format != "json_silent"
-    puts "\nÉtat des services:"
-    services_info.each { |service, status| puts "#{service} : #{status}" }
+    puts "\n#{Colors::BOLD}#{Colors::GREEN}État des services:#{Colors::RESET}"
+    services_info.each { |service, status| puts "#{Colors::YELLOW}#{service}#{Colors::RESET} : #{status}" }
   end
 
   services_info
@@ -458,10 +473,10 @@ end
 ### si pas lancer en root avertissement 
 # uid = 0 pour root
 if Process.uid != 0 then
-  puts "##############################################################################"
-  puts "\nAttention: l'analyse du trafic réseau nécessite les droits root pour nethogs.\n"
+  puts "#{Colors::RED}#{Colors::BOLD}###############################################################################{Colors::RESET}"
+  puts "\n#{Colors::YELLOW}Attention: l'analyse du trafic réseau nécessite les droits root pour nethogs.#{Colors::RESET}\n"
   puts 
-  puts "##############################################################################"
+  puts "#{Colors::RED}#{Colors::BOLD}###############################################################################{Colors::RESET}"
 
 end
 
