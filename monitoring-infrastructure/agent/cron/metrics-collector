@@ -1,2 +1,0 @@
-# Exécution toutes les minutes
-* * * * * root /app/scripts/collect_metrics.sh >> /var/log/metrics-collector.log 2>&1

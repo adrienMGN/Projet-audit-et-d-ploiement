@@ -1,43 +1,31 @@
-FROM ruby:3.2-slim
+FROM debian:bookworm
+
+LABEL description="Container d'audit système via SSH"
+
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
 
 # Installation des dépendances système
 RUN apt-get update && apt-get install -y \
     openssh-client \
-    cron \
-    curl \
-    sysstat \
     procps \
-    docker.io \
+    ruby \
     && rm -rf /var/lib/apt/lists/*
 
-# Création du répertoire de travail
 WORKDIR /app
 
-# Copie des scripts
-COPY deploy.sh /app/deploy.sh
-COPY 2_audit.rb /app/2_audit.rb
-COPY scripts/collect_metrics.sh /app/scripts/collect_metrics.sh
-COPY scripts/json_to_prometheus.rb /app/scripts/json_to_prometheus.rb
+# Copie du script d'audit
+COPY 2_audit.rb /app/audit.rb
+# droit exec sur le script
+RUN chmod +x /app/audit.rb
 
-# Rendre les scripts exécutables
-RUN chmod +x /app/deploy.sh \
-    && chmod +x /app/scripts/collect_metrics.sh \
-    && chmod +x /app/scripts/json_to_prometheus.rb
+# Configuration SSH (dir, droits, StrictHostKeyChecking pour éviter les prompts, droit de config)
+RUN mkdir -p /root/.ssh && \
+    chmod 700 /root/.ssh && \
+    echo "StrictHostKeyChecking no" > /root/.ssh/config && \
+    chmod 600 /root/.ssh/config
 
-# Création des répertoires nécessaires
-RUN mkdir -p /app/output /root/.ssh
-
-# Configuration SSH
-RUN chmod 700 /root/.ssh
-
-# Installation du cron job
-COPY cron/metrics-collector /etc/cron.d/metrics-collector
-RUN chmod 0644 /etc/cron.d/metrics-collector \
-    && chown root:root /etc/cron.d/metrics-collector \
-    && echo "" >> /etc/cron.d/metrics-collector
-
-# Création du fichier de log
-RUN touch /var/log/metrics-collector.log
-
-# Démarrage du cron et maintien du conteneur actif
-CMD cron && tail -f /var/log/metrics-collector.log
+# Point d'entrée (endroit où le conteneur commence l'exécution)
+# le conteneur exécute le script d'audit Ruby et se termine
+ENTRYPOINT ["/app/audit.rb"]
+CMD ["-o", "json", "-c", "0.1", "-m", "0.1", "-p", "/output/1audit_report.json"]
