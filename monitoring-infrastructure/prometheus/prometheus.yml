@@ -1,15 +1,17 @@
 global:
-  scrape_interval: 60s
-  evaluation_interval: 60s
+  scrape_interval: 30s
+  evaluation_interval: 30s
+  external_labels:
+    monitor: 'audit-monitor'
 
 scrape_configs:
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
   - job_name: 'node-metrics'
     honor_labels: true
     file_sd_configs:
       - files:
-          - '/prometheus/node-metrics/*.prom'
+          - '/prometheus/node-metrics/*.json'
         refresh_interval: 30s
-    
-  - job_name: 'prometheus'
-    static_configs:
-      - targets: ['localhost:9090']

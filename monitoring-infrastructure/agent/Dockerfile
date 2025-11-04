@@ -33,7 +33,8 @@ RUN chmod 700 /root/.ssh
 # Installation du cron job
 COPY cron/metrics-collector /etc/cron.d/metrics-collector
 RUN chmod 0644 /etc/cron.d/metrics-collector \
-    && crontab /etc/cron.d/metrics-collector
+    && chown root:root /etc/cron.d/metrics-collector \
+    && echo "" >> /etc/cron.d/metrics-collector
 
 # Création du fichier de log
 RUN touch /var/log/metrics-collector.log

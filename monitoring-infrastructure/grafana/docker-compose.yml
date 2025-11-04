@@ -12,6 +12,7 @@ services:
       - GF_INSTALL_PLUGINS=
     volumes:
       - grafana-data:/var/lib/grafana
+      - ./provisioning:/etc/grafana/provisioning
     restart: unless-stopped
 
 volumes:

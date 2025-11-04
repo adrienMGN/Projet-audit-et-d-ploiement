@@ -6,13 +6,39 @@ services:
     container_name: prometheus
     ports:
       - "9090:9090"
-      - "2222:22"  # SSH sur port 2222 de l'hôte
+      - "2222:22"
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
-      - prometheus-data:/prometheus
+      - prometheus-data:/prometheus/data
       - prometheus-metrics:/prometheus/node-metrics
     restart: unless-stopped
+    networks:
+      - monitoring
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-piechart-panel
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+    networks:
+      - monitoring
 
 volumes:
   prometheus-data:
   prometheus-metrics:
+  grafana-data:
+
+
+networks:
+  monitoring:
+    driver: bridge
