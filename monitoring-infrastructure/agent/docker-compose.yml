@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  metrics-agent:
+    build: .
+    container_name: metrics-agent-${AGENT_HOSTNAME:-node1}
+    environment:
+      - PROMETHEUS_HOST=${PROMETHEUS_HOST:-prometheus.example.com}
+      - PROMETHEUS_PORT=${PROMETHEUS_PORT:-2222}
+      - AGENT_HOSTNAME=${AGENT_HOSTNAME:-node1}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./ssh/id_rsa:/root/.ssh/id_rsa:ro
+      - ./ssh/id_rsa.pub:/root/.ssh/id_rsa.pub:ro
+      - ./ssh/known_hosts:/root/.ssh/known_hosts:ro
+      - ./output:/app/output
+    restart: unless-stopped

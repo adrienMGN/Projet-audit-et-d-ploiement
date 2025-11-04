@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  prometheus:
+    build: .
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+      - "2222:22"  # SSH sur port 2222 de l'hôte
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+      - prometheus-metrics:/prometheus/node-metrics
+    restart: unless-stopped
+
+volumes:
+  prometheus-data:
+  prometheus-metrics:

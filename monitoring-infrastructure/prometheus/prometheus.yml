@@ -1,0 +1,15 @@
+global:
+  scrape_interval: 60s
+  evaluation_interval: 60s
+
+scrape_configs:
+  - job_name: 'node-metrics'
+    honor_labels: true
+    file_sd_configs:
+      - files:
+          - '/prometheus/node-metrics/*.prom'
+        refresh_interval: 30s
+    
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
