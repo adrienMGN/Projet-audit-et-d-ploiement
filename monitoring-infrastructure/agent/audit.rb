@@ -471,7 +471,7 @@ def processes_usage(format, cpu_th, mem_th)
   
   # Filtrer les processus CPU
   cpu_lines = [header]
-  lines[1..-1].each do |line|
+  lines.drop(1).each do |line|
     fields = line.split
     cpu_value = fields[3].to_f
     cpu_lines << line if cpu_value > cpu_th

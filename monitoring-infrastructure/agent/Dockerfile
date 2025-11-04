@@ -10,14 +10,21 @@ RUN apt-get update && apt-get install -y \
     openssh-client \
     procps \
     ruby \
+    cron \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
 # Copie du script d'audit
-COPY 2_audit.rb /app/audit.rb
-# droit exec sur le script
+COPY audit.rb /app/audit.rb
+
+# Copie du fichier cron
+COPY cron/audit_cron /etc/cron.d/audit_cron
+
+# droit exec sur le script et pour le fichier cron
 RUN chmod +x /app/audit.rb
+RUN chmod 0640 /etc/cron.d/audit_cron
+RUN crontab /etc/cron.d/audit_cron
 
 # Configuration SSH (dir, droits, StrictHostKeyChecking pour éviter les prompts, droit de config)
 RUN mkdir -p /root/.ssh && \
@@ -25,7 +32,5 @@ RUN mkdir -p /root/.ssh && \
     echo "StrictHostKeyChecking no" > /root/.ssh/config && \
     chmod 600 /root/.ssh/config
 
-# Point d'entrée (endroit où le conteneur commence l'exécution)
-# le conteneur exécute le script d'audit Ruby et se termine
-ENTRYPOINT ["/app/audit.rb"]
-CMD ["-o", "json", "-c", "0.1", "-m", "0.1", "-p", "/output/1audit_report.json"]
+#commande au lancement du conteneur
+CMD ["cron", "-f"]

@@ -39,9 +39,9 @@ mkdir output
 
 # 5. Build et lancement du conteneur
 echo "Construction de l'image Docker..."
-docker compose build
+docker compose -d
 
 echo "Lancement de l'audit..."
-docker compose run --rm audit "$@"
+docker compose run audit "$@"
 
 echo "=== Audit terminé ==="
