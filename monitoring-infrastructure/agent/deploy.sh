@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# filepath: /home/sinje/Projet-audit-et-d-ploiement/monitoring-infrastructure/agent/deploy.sh
+
+set -e
 
 echo "=== Configuration de l'audit système Docker ==="
 
@@ -11,37 +14,104 @@ if ! systemctl is-active --quiet ssh; then
     sudo systemctl start ssh
 fi
 
-# vérifier si nethogs est installé
+# Vérifier si nethogs est installé
 if ! command -v nethogs &> /dev/null; then
     echo "Installation de nethogs..."
     sudo apt-get update
     sudo apt-get install -y nethogs
 fi
 
-# 2. Générer les clés SSH si elles n'existent pas
+# 2. Créer le répertoire de sortie AVANT de générer les clés
+mkdir -p output
+mkdir -p ssh-keys
+
+# 3. Générer les clés SSH si elles n'existent pas
 if [ ! -f ./ssh-keys/id_rsa ]; then
     echo "Génération des clés SSH..."
-    mkdir -p ./ssh-keys
     ssh-keygen -t rsa -b 4096 -f ./ssh-keys/id_rsa -N "" -C "audit-container"
+    echo "✓ Clés SSH générées"
+else
+    echo "✓ Clés SSH déjà présentes"
 fi
 
-# 3. Ajouter la clé publique aux autorisations root (script exécuté avec sudo)
+# Vérifier que les clés ont bien été créées
+if [ ! -f ./ssh-keys/id_rsa ] || [ ! -f ./ssh-keys/id_rsa.pub ]; then
+    echo "✗ ERREUR: Les clés SSH n'ont pas été créées correctement"
+    exit 1
+fi
+
+echo "Contenu de la clé publique:"
+cat ./ssh-keys/id_rsa.pub
+
+# 4. Ajouter la clé publique aux autorisations root
 echo "Ajout de la clé publique aux autorisations..."
 sudo mkdir -p /root/.ssh
-sudo cat ./ssh-keys/id_rsa.pub | sudo tee -a /root/.ssh/authorized_keys > /dev/null
+
+# Vérifier si la clé est déjà présente pour éviter les doublons
+KEY_CONTENT=$(cat ./ssh-keys/id_rsa.pub)
+if sudo grep -qF "$KEY_CONTENT" /root/.ssh/authorized_keys 2>/dev/null; then
+    echo "✓ Clé déjà présente dans authorized_keys"
+else
+    sudo cat ./ssh-keys/id_rsa.pub | sudo tee -a /root/.ssh/authorized_keys > /dev/null
+    echo "✓ Clé ajoutée à authorized_keys"
+fi
+
 sudo chmod 600 /root/.ssh/authorized_keys
 sudo chmod 700 /root/.ssh
 
+# 5. Afficher les informations de configuration
+echo ""
+echo "Configuration SSH:"
+echo "  - Clé privée: ./ssh-keys/id_rsa"
+echo "  - Clé publique: ./ssh-keys/id_rsa.pub"
+echo "  - authorized_keys: /root/.ssh/authorized_keys"
 
+# 6. Tester la connexion SSH depuis l'hôte
+echo ""
+echo "Test de connexion SSH..."
+if ssh -i ./ssh-keys/id_rsa -o StrictHostKeyChecking=no -o ConnectTimeout=5 root@localhost "echo 'SSH OK'" 2>/dev/null; then
+    echo "✓ Connexion SSH fonctionnelle"
+else
+    echo "⚠️  Attention: Test SSH échoué (normal si root login est désactivé)"
+fi
 
-# 4. Créer le répertoire de sortie
-mkdir output
-
-# 5. Build et lancement du conteneur
+# 7. Build et lancement du conteneur
+echo ""
 echo "Construction de l'image Docker..."
-docker compose -d
+docker compose build
 
-echo "Lancement de l'audit..."
-docker compose run audit "$@"
+echo ""
+echo "Démarrage des conteneurs..."
+docker compose up -d
 
-echo "=== Audit terminé ==="
+# 8. Vérifications
+echo ""
+echo "========================================="
+echo "✓ Déploiement terminé"
+echo "========================================="
+echo ""
+echo "Commandes utiles:"
+echo "  - Logs audit:        docker logs -f metrics-agent-node1"
+echo "  - Logs exporter:     docker logs -f node-exporter"
+echo "  - Métriques Node:    curl http://localhost:9100/metrics | grep audit_"
+echo "  - Fichiers .prom:    ls -lh output/"
+echo "  - Entrer audit:      docker exec -it metrics-agent-node1 bash"
+echo ""
+echo "Attendre 1 minute pour la première génération de métriques..."
+echo "========================================="
+
+# 9. Attendre et vérifier que les métriques sont générées
+sleep 65
+
+if [ -f output/metrics.prom ]; then
+    echo ""
+    echo "✓ Fichier metrics.prom généré avec succès:"
+    ls -lh output/metrics.prom
+    echo ""
+    echo "Aperçu des métriques:"
+    head -20 output/metrics.prom
+else
+    echo ""
+    echo "⚠️  Attention: metrics.prom pas encore généré"
+    echo "Vérifier les logs: docker logs metrics-agent-node1"
+fi

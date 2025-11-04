@@ -7,4 +7,4 @@ TARGET_USER=root
 SSH_KEY_PATH=/root/.ssh/id_rsa
 
 # Exécuter l'audit toutes les minutes
-* * * * * root cd /app && /app/audit.rb -o json -c 0.1 -m 0.1 -p /output/audit_$(date +\%Y\%m\%d_\%H\%M\%S).json >> /var/log/audit-cron.log 2>&1
+* * * * * /app/audit.rb -o json -c 0.1 -m 0.1 -p /output/audit_$(hostname).json >> /var/log/audit-cron.log 2>&1

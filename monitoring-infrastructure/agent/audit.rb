@@ -101,141 +101,194 @@ def export_json_to_file(data, file_path)
 end
 
 # # Converti tout en bits pour le Grafana plus tard
-def parse_value(value_str)
-  return 0 if value_str.nil? || value_str.empty?
+def parse_value(value)
+  return 0 if value.nil? || value.to_s.strip.empty?
   
+  # Si c'est déjà un nombre
+  return value.to_f if value.is_a?(Numeric)
+  
+  value_str = value.to_s.strip
+  
+  # Remplacer la virgule par un point (format européen)
+  value_str = value_str.tr(',', '.')
+  
+  # Parser les différents formats
   case value_str
-  when /^([\d.]+)Gi$/
-    $1.to_f * 1024 * 1024 * 1024
-  when /^([\d.]+)Mi$/
-    $1.to_f * 1024 * 1024
-  when /^([\d.]+)Ki$/
-    $1.to_f * 1024
-  when /^([\d.]+)G$/
-    $1.to_f * 1000 * 1000 * 1000
-  when /^([\d.]+)M$/
-    $1.to_f * 1000 * 1000
-  when /^([\d.]+)K$/
-    $1.to_f * 1000
-  when /^([\d.]+)B$/
-    $1.to_f
-  when /^([\d.]+)%$/
-    $1.to_f
+  when /^([\d.]+)\s*([KMGTP])i?B?$/i  # Ex: "227G", "2.0G", "290M"
+    number = $1.to_f
+    unit = $2.upcase
+    
+    multipliers = {
+      'K' => 1024,
+      'M' => 1024 ** 2,
+      'G' => 1024 ** 3,
+      'T' => 1024 ** 4,
+      'P' => 1024 ** 5
+    }
+    
+    return (number * multipliers[unit]).to_i
+    
+  when /^([\d.]+)%$/  # Pourcentage (ex: "10%")
+    return $1.to_f
+    
+  when /^([\d.]+)\s*B$/i  # Bytes (ex: "0B")
+    return $1.to_f.to_i
+    
   else
-    value_str.to_f
+    # Essayer de parser comme nombre simple
+    return value_str.to_f
   end
 end
-
 # Fonction json to prom
+# Remplace la fonction generate_prometheus_file par celle-ci :
+
 def generate_prometheus_file(data, prom_file_path)
-  metrics = []
+  temp_file = prom_file_path + ".tmp"
   hostname = data.dig("system_info", "Nom de la machine") || "unknown"
-  timestamp_ms = Time.now.to_i * 1000
+  
+  File.open(temp_file, 'w') do |f|
+    # 1. Load average - SANS TIMESTAMP
+    load_avg = data.dig("resources", "Charge moyenne (1, 5, 15 min)")
+    if load_avg
+      loads = load_avg.split(',').map(&:strip)
+      
+      f.puts "# HELP node_load1 1-minute load average"
+      f.puts "# TYPE node_load1 gauge"
+      f.puts "node_load1{hostname=\"#{hostname}\"} #{loads[0]}"
+      f.puts ""
+      
+      f.puts "# HELP node_load5 5-minute load average"
+      f.puts "# TYPE node_load5 gauge"
+      f.puts "node_load5{hostname=\"#{hostname}\"} #{loads[1]}"
+      f.puts ""
+      
+      f.puts "# HELP node_load15 15-minute load average"
+      f.puts "# TYPE node_load15 gauge"
+      f.puts "node_load15{hostname=\"#{hostname}\"} #{loads[2]}"
+      f.puts ""
+    end
 
-  # 1. load avg
-  load_avg = data.dig("resources", "Charge moyenne (1, 5, 15 min)")
-  if load_avg
-    loads = load_avg.split(',').map(&:strip)
-    metrics << "# HELP node_load1 1-minute load average"
-    metrics << "# TYPE node_load1 gauge"
-    metrics << "node_load1{hostname=\"#{hostname}\"} #{loads[0]} #{timestamp_ms}"
+    # 2. Mémoire
+    mem_used = parse_value(data.dig("resources", "Mémoire utilisée"))
+    mem_available = parse_value(data.dig("resources", "Mémoire disponible"))
+    mem_total = mem_used + mem_available
+
+    f.puts "# HELP node_memory_MemTotal_bytes Total memory in bytes"
+    f.puts "# TYPE node_memory_MemTotal_bytes gauge"
+    f.puts "node_memory_MemTotal_bytes{hostname=\"#{hostname}\"} #{mem_total}"
+    f.puts ""
+
+    f.puts "# HELP node_memory_MemUsed_bytes Used memory in bytes"
+    f.puts "# TYPE node_memory_MemUsed_bytes gauge"
+    f.puts "node_memory_MemUsed_bytes{hostname=\"#{hostname}\"} #{mem_used}"
+    f.puts ""
+
+    f.puts "# HELP node_memory_MemAvailable_bytes Available memory in bytes"
+    f.puts "# TYPE node_memory_MemAvailable_bytes gauge"
+    f.puts "node_memory_MemAvailable_bytes{hostname=\"#{hostname}\"} #{mem_available}"
+    f.puts ""
+
+    mem_percent = mem_total > 0 ? (mem_used / mem_total * 100) : 0
+    f.puts "# HELP node_memory_usage_percent Memory usage percentage"
+    f.puts "# TYPE node_memory_usage_percent gauge"
+    f.puts "node_memory_usage_percent{hostname=\"#{hostname}\"} #{mem_percent.round(2)}"
+    f.puts ""
+
+    # 3. Swap
+    swap_used = parse_value(data.dig("resources", "Swap utilisé"))
+    f.puts "# HELP node_swap_used_bytes Used swap in bytes"
+    f.puts "# TYPE node_swap_used_bytes gauge"
+    f.puts "node_swap_used_bytes{hostname=\"#{hostname}\"} #{swap_used}"
+    f.puts ""
+
+    # 4. Disque
+    if data["disk_space"] && !data["disk_space"].empty?
+      valid_disks = data["disk_space"].select do |disk|
+        partition = disk[:partition] || disk["partition"]
+        partition =~ /^\/dev\/(mapper|nvme|sd|vd)/  # Accepte aussi /dev/mapper
+      end
+      
+      unless valid_disks.empty?
+        # Size
+        f.puts "# HELP node_filesystem_size_bytes Filesystem size in bytes"
+        f.puts "# TYPE node_filesystem_size_bytes gauge"
+        valid_disks.each do |disk|
+          partition = disk[:partition] || disk["partition"]
+          taille_raw = disk[:taille] || disk["taille"]
+          total_bytes = parse_value(taille_raw)
+          
+          f.puts "node_filesystem_size_bytes{hostname=\"#{hostname}\",device=\"#{partition}\"} #{total_bytes}"
+        end
+        f.puts ""
+        
+        # Used
+        f.puts "# HELP node_filesystem_used_bytes Filesystem used space in bytes"
+        f.puts "# TYPE node_filesystem_used_bytes gauge"
+        valid_disks.each do |disk|
+          partition = disk[:partition] || disk["partition"]
+          utilise_raw = disk[:utilise] || disk["utilise"]
+          used_bytes = parse_value(utilise_raw)
+          
+          f.puts "node_filesystem_used_bytes{hostname=\"#{hostname}\",device=\"#{partition}\"} #{used_bytes}"
+        end
+        f.puts ""
+        
+        # Available
+        f.puts "# HELP node_filesystem_avail_bytes Filesystem available space in bytes"
+        f.puts "# TYPE node_filesystem_avail_bytes gauge"
+        valid_disks.each do |disk|
+          partition = disk[:partition] || disk["partition"]
+          disponible_raw = disk[:disponible] || disk["disponible"]
+          available_bytes = parse_value(disponible_raw)
+          
+          f.puts "node_filesystem_avail_bytes{hostname=\"#{hostname}\",device=\"#{partition}\"} #{available_bytes}"
+        end
+        f.puts ""
+        
+        # Usage percent
+        f.puts "# HELP node_filesystem_usage_percent Filesystem usage percentage"
+        f.puts "# TYPE node_filesystem_usage_percent gauge"
+        valid_disks.each do |disk|
+          partition = disk[:partition] || disk["partition"]
+          usage_pct_raw = disk[:dispo_pct] || disk["dispo_pct"]
+          usage_percent = parse_value(usage_pct_raw)  # Parse "10%" -> 10.0
+          
+          f.puts "node_filesystem_usage_percent{hostname=\"#{hostname}\",device=\"#{partition}\"} #{usage_percent}"
+        end
+        f.puts ""
+      end
+    end
     
-    metrics << "# HELP node_load5 5-minute load average"
-    metrics << "# TYPE node_load5 gauge"
-    metrics << "node_load5{hostname=\"#{hostname}\"} #{loads[1]} #{timestamp_ms}"
-    
-    metrics << "# HELP node_load15 15-minute load average"
-    metrics << "# TYPE node_load15 gauge"
-    metrics << "node_load15{hostname=\"#{hostname}\"} #{loads[2]} #{timestamp_ms}"
-  end
+    # 5. Services - HELP/TYPE UNE SEULE FOIS
+    if data["services"] && !data["services"].empty?
+      f.puts "# HELP node_service_status Service status (1=active, 0=inactive)"
+      f.puts "# TYPE node_service_status gauge"
+      data["services"].each do |service, status|
+        is_active = status.include?("active") ? 1 : 0
+        f.puts "node_service_status{hostname=\"#{hostname}\",service=\"#{service}\"} #{is_active}"
+      end
+      f.puts ""
+    end
 
-  # 2. mémoire
-  mem_used = parse_value(data.dig("resources", "Mémoire utilisée"))
-  mem_available = parse_value(data.dig("resources", "Mémoire disponible"))
-  mem_total = mem_used + mem_available
-
-  metrics << "# HELP node_memory_MemTotal_bytes Total memory in bytes"
-  metrics << "# TYPE node_memory_MemTotal_bytes gauge"
-  metrics << "node_memory_MemTotal_bytes{hostname=\"#{hostname}\"} #{mem_total} #{timestamp_ms}"
-
-  metrics << "# HELP node_memory_MemUsed_bytes Used memory in bytes"
-  metrics << "# TYPE node_memory_MemUsed_bytes gauge"
-  metrics << "node_memory_MemUsed_bytes{hostname=\"#{hostname}\"} #{mem_used} #{timestamp_ms}"
-
-  metrics << "# HELP node_memory_MemAvailable_bytes Available memory in bytes"
-  metrics << "# TYPE node_memory_MemAvailable_bytes gauge"
-  metrics << "node_memory_MemAvailable_bytes{hostname=\"#{hostname}\"} #{mem_available} #{timestamp_ms}"
-
-  # memoire en pourcentage pour le grafana
-  mem_percent = mem_total > 0 ? (mem_used / mem_total * 100) : 0
-  metrics << "# HELP node_memory_usage_percent Memory usage percentage"
-  metrics << "# TYPE node_memory_usage_percent gauge"
-  metrics << "node_memory_usage_percent{hostname=\"#{hostname}\"} #{mem_percent.round(2)} #{timestamp_ms}"
-
-  # swap
-  swap_used = parse_value(data.dig("resources", "Swap utilisé"))
-  swap_available = parse_value(data.dig("resources", "Swap disponible"))
-
-  metrics << "# HELP node_swap_used_bytes Used swap in bytes"
-  metrics << "# TYPE node_swap_used_bytes gauge"
-  metrics << "node_swap_used_bytes{hostname=\"#{hostname}\"} #{swap_used} #{timestamp_ms}"
-
-  # 3. disque, on ignore les pertitions impertinentes comme les /dev/loop pour conteneurs
-  if data["disk_space"]
-    data["disk_space"].each do |disk|
-      partition = disk[:partition] || disk["partition"]
-      next unless partition =~ /^\/dev\/(nvme|sd|vd)/
+    # 6. Uptime
+    uptime_str = data.dig("resources", "Uptime")
+    if uptime_str
+      uptime_seconds = 0
+      uptime_seconds += $1.to_i * 24 * 3600 if uptime_str =~ /(\d+)\s+days?/
+      uptime_seconds += $1.to_i * 3600 if uptime_str =~ /(\d+)\s+hours?/
+      uptime_seconds += $1.to_i * 60 if uptime_str =~ /(\d+)\s+minutes?/
       
-      total_bytes = parse_value(disk[:taille] || disk["taille"])
-      used_bytes = parse_value(disk[:utilise] || disk["utilise"])
-      available_bytes = parse_value(disk[:disponible] || disk["disponible"])
-      usage_percent = parse_value(disk[:dispo_pct] || disk["dispo_pct"])
-      
-      partition_clean = partition.gsub(/[^\w\-]/, '_') # sanitize
-      
-      metrics << "# HELP node_filesystem_size_bytes Filesystem size in bytes"
-      metrics << "# TYPE node_filesystem_size_bytes gauge"
-      metrics << "node_filesystem_size_bytes{hostname=\"#{hostname}\",device=\"#{partition}\"} #{total_bytes} #{timestamp_ms}"
-      
-      metrics << "# HELP node_filesystem_avail_bytes Filesystem available space in bytes"
-      metrics << "# TYPE node_filesystem_avail_bytes gauge"
-      metrics << "node_filesystem_avail_bytes{hostname=\"#{hostname}\",device=\"#{partition}\"} #{available_bytes} #{timestamp_ms}"
-      
-      metrics << "# HELP node_filesystem_usage_percent Filesystem usage percentage"
-      metrics << "# TYPE node_filesystem_usage_percent gauge"
-      metrics << "node_filesystem_usage_percent{hostname=\"#{hostname}\",device=\"#{partition}\"} #{usage_percent} #{timestamp_ms}"
+      f.puts "# HELP node_uptime_seconds System uptime in seconds"
+      f.puts "# TYPE node_uptime_seconds counter"
+      f.puts "node_uptime_seconds{hostname=\"#{hostname}\"} #{uptime_seconds}"
+      f.puts ""
     end
   end
-
-  # 4. services
-  if data["services"]
-    data["services"].each do |service, status|
-      # Extraire le statut (active/inactive)
-      is_active = status.include?("active") ? 1 : 0
-      
-      metrics << "# HELP node_service_status Service status (1=active, 0=inactive)"
-      metrics << "# TYPE node_service_status gauge"
-      metrics << "node_service_status{hostname=\"#{hostname}\",service=\"#{service}\"} #{is_active} #{timestamp_ms}"
-    end
-  end
-
-  # 5. uptime
-  uptime_str = data.dig("resources", "Uptime")
-  if uptime_str
-    # converti hms en secondes
-    uptime_seconds = 0
-    uptime_seconds += $1.to_i * 24 * 3600 if uptime_str =~ /(\d+)\s+days?/
-    uptime_seconds += $1.to_i * 3600 if uptime_str =~ /(\d+)\s+hours?/
-    uptime_seconds += $1.to_i * 60 if uptime_str =~ /(\d+)\s+minutes?/
-    
-    metrics << "# HELP node_uptime_seconds System uptime in seconds"
-    metrics << "# TYPE node_uptime_seconds counter"
-    metrics << "node_uptime_seconds{hostname=\"#{hostname}\"} #{uptime_seconds} #{timestamp_ms}"
-  end
-
-  File.write(prom_file_path, metrics.join("\n") + "\n")
+  
+  # Renommer atomiquement
+  File.rename(temp_file, prom_file_path)
+  puts "✓ Fichier Prometheus généré: #{prom_file_path}"
 end
-
 # 1
 def nom_distro(format)
   nodename = run_remote("uname --nodename").strip
