@@ -483,7 +483,7 @@ def processes_usage(format, cpu_th, mem_th)
   lines_mem = all_processes_mem.split("\n")
   
   mem_lines = [header]
-  lines_mem[1..-1].each do |line|
+  lines_mem.drop(1).each do |line|
     fields = line.split
     mem_value = fields[4].to_f
     mem_lines << line if mem_value > mem_th

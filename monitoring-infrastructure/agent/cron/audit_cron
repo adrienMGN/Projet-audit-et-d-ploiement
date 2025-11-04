@@ -1,1 +1,10 @@
-* * * * * /app/audit.rb -o json -c 0.1 -m 0.1 -p /output/1audit_report.json
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+
+# Variables d'environnement
+TARGET_HOST=172.17.0.1
+TARGET_USER=root
+SSH_KEY_PATH=/root/.ssh/id_rsa
+
+# Exécuter l'audit toutes les minutes
+* * * * * root cd /app && /app/audit.rb -o json -c 0.1 -m 0.1 -p /output/audit_$(date +\%Y\%m\%d_\%H\%M\%S).json >> /var/log/audit-cron.log 2>&1
