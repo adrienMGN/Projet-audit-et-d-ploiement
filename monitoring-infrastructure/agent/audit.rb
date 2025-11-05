@@ -143,12 +143,12 @@ end
 # Remplace la fonction generate_prometheus_file par celle-ci :
 
 def generate_prometheus_file(data, prom_file_path)
-  temp_file = prom_file_path + ".tmp"
-  hostname = data.dig("system_info", "Nom de la machine") || "unknown"
+  temp_file = prom_file_path + ".tmp" # fichier temporaire pour écriture atomique
+  hostname = data.dig("system_info", "Nom de la machine") || "unknown" # Nom de la machine
   
-  File.open(temp_file, 'w') do |f|
+  File.open(temp_file, 'w') do |f| 
     # 1. Load average - SANS TIMESTAMP
-    load_avg = data.dig("resources", "Charge moyenne (1, 5, 15 min)")
+    load_avg = data.dig("resources", "Charge moyenne (1, 5, 15 min)") # Ex: "0.15, 0.10, 0.05"
     if load_avg
       loads = load_avg.split(',').map(&:strip)
       

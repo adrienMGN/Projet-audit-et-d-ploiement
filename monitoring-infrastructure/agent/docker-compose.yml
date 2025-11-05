@@ -14,14 +14,14 @@ services:
       - /:/rootfs:ro
 
     command:
-      - '--path.procfs=/host/proc'
-      - '--path.sysfs=/host/sys'
-      - '--path.rootfs=/rootfs'
-      - '--collector.textfile.directory=/textfile-metrics'
-      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
-      - '--web.listen-address=0.0.0.0:9100'
+      - '--path.procfs=/host/proc' # Spécifie le chemin vers /proc de l'hôte
+      - '--path.sysfs=/host/sys' # Spécifie le chemin vers /sys de l'hôte
+      - '--path.rootfs=/rootfs' # Spécifie le chemin vers la racine de l'hôte
+      - '--collector.textfile.directory=/textfile-metrics' # Répertoire pour les métriques personnalisées
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)' # Exclure certains points de montage
+      - '--web.listen-address=0.0.0.0:9100' # Écoute sur toutes les interfaces
 
-    network_mode: host
+    network_mode: host  # Utiliser le réseau de l'hôte pour accéder aux métriques système
   audit:
     build:
       context: .
