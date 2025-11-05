@@ -52,8 +52,8 @@ cd monitoring-infrastructure/prometheus
 docker-compose up -d
 ```
 
-* Prometheus sera accessible sur : **[http://localhost:9090](http://localhost:9090)**
-* Grafana sera accessible sur : **[http://localhost:3000](http://localhost:3000)**
+* Prometheus sera accessible sur : **[http://IP_HOTE:9090]**
+* Grafana sera accessible sur : **[http://IP_HOTE:3000]**
 
 ### 4. Déployer l’agent d’audit
 
