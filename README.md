@@ -1,11 +1,11 @@
-# 🧠 Projet d’Audit et de Déploiement
+# Projet d’Audit et de Déploiement
 
 Ce projet a pour objectif de **déployer une infrastructure d’audit et de monitoring** automatisée à l’aide de **Prometheus**, **Grafana** et d’un **agent d’audit** développé sur mesure.  
 Il permet d’assurer une supervision continue des systèmes et d’automatiser la collecte d’informations de performance et de sécurité.
 
 ---
 
-## 📁 Structure du projet
+## Structure du projet
 
 ```
 
@@ -31,7 +31,7 @@ Projet-audit-et-d-ploiement/
 
 ---
 
-## 🚀 Lancer le projet
+## Lancer le projet
 
 ### 1. Prérequis
 Assure-toi d’avoir installé :
@@ -66,17 +66,17 @@ L’agent collectera automatiquement les métriques selon la configuration du cr
 
 ---
 
-## 🧩 Fonctionnalités
+## Fonctionnalités
 
-* 📊 **Surveillance système en temps réel** (CPU, mémoire, disques, etc.)
-* 🔍 **Audit automatisé** via scripts Ruby planifiés
-* 🧱 **Infrastructure modulaire** avec Docker Compose
-* ⚙️ **Déploiement simplifié** grâce à `deploy.sh`
-* 🧠 **Visualisation** des données via Grafana
+*  **Surveillance système en temps réel** (CPU, mémoire, disques, etc.)
+*  **Audit automatisé** via scripts Ruby planifiés
+*  **Infrastructure modulaire** avec Docker Compose
+*  **Déploiement simplifié** grâce à `deploy.sh`
+*  **Visualisation** des données via Grafana
 
 ---
 
-## ⚙️ Technologies utilisées
+##  Technologies utilisées
 
 | Composant            | Description                           |
 | -------------------- | ------------------------------------- |
@@ -87,13 +87,13 @@ L’agent collectera automatiquement les métriques selon la configuration du cr
 | **Cron**             | Automatisation des tâches périodiques |
 
 
-## ⚙️ Explications techniques des choix réalisés
+##  Explications techniques des choix réalisés
 
 L’architecture du projet repose sur deux composants principaux :  
 1. **Une partie serveur**, dédiée à la collecte et à la visualisation des métriques.  
 2. **Une partie agent**, déployée sur les machines à superviser.  
 
-### 🖥️ Partie serveur (Prometheus & Grafana via Docker)
+###  Partie serveur (Prometheus & Grafana via Docker)
 La partie serveur est intégralement **conteneurisée avec Docker** pour simplifier le déploiement, la portabilité et la maintenance.  
 Elle comprend :
 - **Prometheus**, chargé de collecter les métriques des différentes machines observées.  
@@ -108,7 +108,7 @@ Cette approche offre :
 
 ---
 
-### 🧩 Partie agent (Audit Ruby + Node Exporter)
+###  Partie agent (Audit Ruby + Node Exporter)
 Chaque machine à monitorer doit exécuter un **agent local** constitué de :
 - Un **script Ruby (`audit.rb`)**, qui collecte des informations spécifiques à la machine (système, processus, performances, etc.).  
 - Un **Node Exporter**, outil standard de Prometheus, qui expose les métriques système (CPU, mémoire, disque, etc.) sur un port HTTP.  
@@ -121,7 +121,7 @@ Ce choix permet :
 
 ---
 
-## 📦 Maintenance et évolution
+##  Maintenance et évolution
 
 * Ajouter de nouvelles métriques à surveiller via `prometheus.yml`
 * Étendre l’agent Ruby pour collecter des indicateurs spécifiques
@@ -129,7 +129,7 @@ Ce choix permet :
 
 ---
 
-## 🧠 Critique et axes d’amélioration
+##  Critique et axes d’amélioration
 
 Le déploiement actuel repose sur une **procédure manuelle** :  
 chaque machine doit **cloner le dépôt** puis exécuter le script `deploy.sh` pour lancer l’agent.  
@@ -149,7 +149,15 @@ En résumé, le projet présente une **architecture claire, fonctionnelle et ins
 
 ---
 
-## 🧑‍💻 Auteurs
+## Capture d'écran des tableaux de bord de Grafana
+
+![Dashboard 1 - fuckit](images/img1.png)
+![Dashboard 1 - iutnc-503-08](images/img2.png)
+![Dashboard 2 - fuckit](images/img3.png)
+![Dashboard 3 - fuckit](images/img4.png)
+
+---
+##  Auteurs
 
 * **Gabriel Comte**
 * **Oscar Tom Denis**
