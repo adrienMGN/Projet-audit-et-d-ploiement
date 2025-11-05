@@ -484,6 +484,7 @@ def espace_disque(format)
   resultat = []
 
   run_remote("df -h").each_line do |ligne|
+  ligne.force_encoding("UTF-8").encode!("UTF-8", invalid: :replace, undef: :replace)
     if ligne =~ regex
       partition  = $1
       taille     = $2
