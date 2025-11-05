@@ -34,10 +34,10 @@ Projet-audit-et-d-ploiement/
 ## Lancer le projet
 
 ### 1. Prérequis
-Assure-toi d’avoir installé :
+
 - **Docker** et **Docker Compose**
 - **Git** (pour le clonage)
-- (Optionnel) **Ruby** si tu veux exécuter le script `audit.rb` hors container
+- (Optionnel) **Ruby** pour le script `audit.rb` hors container
 
 ### 2. Cloner le dépôt
 ```bash
