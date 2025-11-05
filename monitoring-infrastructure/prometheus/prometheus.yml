@@ -1,22 +1,11 @@
-global:
-  scrape_interval: 30s
-  evaluation_interval: 30s
-  scrape_timeout: 10s
+apiVersion: 1
 
-scrape_configs:
-  - job_name: 'prometheus'
-    static_configs:
-      - targets: ['localhost:9090']
-        labels:
-          instance: 'prometheus-server'
-
-  - job_name: 'node-exporter-agents'
-    static_configs:
-      - targets:
-          - '100.109.27.91:9100'
-        labels:
-          node: 'agent-node1'
-          environment: 'production'
-    
-    scrape_interval: 30s
-    scrape_timeout: 10s
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: true
+    jsonData:
+      timeInterval: 30s
