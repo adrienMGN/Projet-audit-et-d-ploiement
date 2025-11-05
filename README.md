@@ -150,10 +150,16 @@ En résumé, le projet présente une **architecture claire, fonctionnelle et ins
 ---
 
 ## Capture d'écran des tableaux de bord de Grafana
-
+### Dashboard 1 - fuckit
 ![Dashboard 1 - fuckit](images/img1.png)
+
+### Dashboard 1 - iutnc-503-08
 ![Dashboard 1 - iutnc-503-08](images/img2.png)
+
+### Dashboard 2 - fuckit
 ![Dashboard 2 - fuckit](images/img3.png)
+
+### Dashboard 3 - fuckit
 ![Dashboard 3 - fuckit](images/img4.png)
 
 ---
