@@ -86,6 +86,39 @@ L’agent collectera automatiquement les métriques selon la configuration du cr
 | **Ruby**             | Langage de script pour l’audit        |
 | **Cron**             | Automatisation des tâches périodiques |
 
+
+## ⚙️ Explications techniques des choix réalisés
+
+L’architecture du projet repose sur deux composants principaux :  
+1. **Une partie serveur**, dédiée à la collecte et à la visualisation des métriques.  
+2. **Une partie agent**, déployée sur les machines à superviser.  
+
+### 🖥️ Partie serveur (Prometheus & Grafana via Docker)
+La partie serveur est intégralement **conteneurisée avec Docker** pour simplifier le déploiement, la portabilité et la maintenance.  
+Elle comprend :
+- **Prometheus**, chargé de collecter les métriques des différentes machines observées.  
+- **Grafana**, utilisé pour la visualisation graphique et la création de tableaux de bord dynamiques.  
+
+Le fichier `docker-compose.yml` permet de lancer l’ensemble de la stack d’un simple `docker-compose up -d`.  
+Pour ajouter une nouvelle machine à surveiller, il suffit **d’ajouter son adresse IP** dans le fichier `prometheus.yml` sous la section des cibles (`targets:`).  
+
+Cette approche offre :
+- Une **infrastructure centralisée** de supervision.  
+- Une **configuration simple et modulaire**.  
+
+---
+
+### 🧩 Partie agent (Audit Ruby + Node Exporter)
+Chaque machine à monitorer doit exécuter un **agent local** constitué de :
+- Un **script Ruby (`audit.rb`)**, qui collecte des informations spécifiques à la machine (système, processus, performances, etc.).  
+- Un **Node Exporter**, outil standard de Prometheus, qui expose les métriques système (CPU, mémoire, disque, etc.) sur un port HTTP.  
+
+L’agent est déployé via un **conteneur Docker** grâce à un **script `deploy.sh`**.  
+Ce choix permet :
+- Un déploiement rapide et reproductible sur toute machine compatible Docker.  
+- Une isolation des dépendances et des configurations locales.  
+- Une facilité de mise à jour ou de suppression de l’agent.
+
 ---
 
 ## 📦 Maintenance et évolution
@@ -93,6 +126,26 @@ L’agent collectera automatiquement les métriques selon la configuration du cr
 * Ajouter de nouvelles métriques à surveiller via `prometheus.yml`
 * Étendre l’agent Ruby pour collecter des indicateurs spécifiques
 * Intégrer des alertes Prometheus / Grafana selon les seuils définis
+
+---
+
+## 🧠 Critique et axes d’amélioration
+
+Le déploiement actuel repose sur une **procédure manuelle** :  
+chaque machine doit **cloner le dépôt** puis exécuter le script `deploy.sh` pour lancer l’agent.  
+Bien que cela fonctionne pour un petit nombre de serveurs, cette méthode n’est **pas adaptée à une mise à l’échelle**.  
+
+Une amélioration possible serait d’utiliser un outil de gestion de configuration comme **Ansible**, **Puppet** ou **Terraform**, afin de :
+- Automatiser le déploiement de l’agent sur plusieurs machines en parallèle.  
+- Centraliser la configuration réseau et les variables d’environnement.  
+- Réduire le risque d’erreurs humaines lors de l’installation.
+
+Concernant le **script `audit.rb`**, il constitue un **excellent exercice pédagogique** pour comprendre le fonctionnement interne d’un agent de monitoring.  
+Cependant, dans une approche de production :
+- Des solutions existantes comme **Node Exporter**, **Telegraf** ou **CollectD** sont **plus complètes**, **plus performantes**, et déjà **intégrées à l’écosystème Prometheus**.  
+- Ces outils fournissent une **grande variété de métriques** sans nécessiter de développement supplémentaire.  
+
+En résumé, le projet présente une **architecture claire, fonctionnelle et instructive**, mais qui pourrait être **optimisée et automatisée** pour un usage en environnement de production à grande échelle.
 
 ---
 
