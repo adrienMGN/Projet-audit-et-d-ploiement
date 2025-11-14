@@ -264,7 +264,7 @@ def generate_prometheus_file(data, prom_file_path)
       f.puts "# HELP node_service_status Service status (1=active, 0=inactive)"
       f.puts "# TYPE node_service_status gauge"
       data["services"].each do |service, status|
-        is_active = status.include?("active") ? 1 : 0
+        is_active = status.include?("inactive") ? 0 : 1
         f.puts "node_service_status{hostname=\"#{hostname}\",service=\"#{service}\"} #{is_active}"
       end
       f.puts ""
